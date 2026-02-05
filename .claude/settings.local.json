@@ -13,15 +13,15 @@
     "preToolUse": [
       {
         "matcher": "Bash",
-        "pattern": "git push",
-        "command": "cd \"C:\\Users\\sam\\Documents\\Personal-Projects\\mlb-visualizer\" && npm run build && echo '✓ Build passed - ready to push'"
+        "pattern": "git commit",
+        "command": "echo '📦 Remember: Push to main to auto-deploy to GitHub Pages'"
       }
     ],
     "postToolUse": [
       {
         "matcher": "Bash",
         "pattern": "git commit",
-        "command": "echo '✓ Committed! Run git push to deploy to GitHub Pages'"
+        "command": "echo '✓ Committed! Run: git push → deploys to https://itchmecho.github.io/mlb-visualizer/'"
       }
     ]
   }
