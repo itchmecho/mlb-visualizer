@@ -207,10 +207,10 @@ const Standings = ({ standings, season, loading }) => {
     );
   }
 
-  // Group standings by division
+  // Group standings by division (division ID is in team.division.id)
   const standingsByDivision = {};
   standings.forEach(record => {
-    const divisionId = record.division?.id;
+    const divisionId = record.team?.division?.id;
     if (divisionId) {
       if (!standingsByDivision[divisionId]) {
         standingsByDivision[divisionId] = [];
