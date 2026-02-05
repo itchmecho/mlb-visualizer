@@ -1,8 +1,9 @@
 // CompareStatBar component - Head-to-head stat comparison
-// v1.0.0 | 2026-02-04
+// v1.1.0 | 2026-02-05
 
 import React from 'react';
 import { getPercentileColor, calculatePercentile } from '../utils/percentile';
+import { getStatDescription } from '../utils/statDescriptions';
 
 const formatStatValue = (value, statKey) => {
   if (value === undefined || value === null) return '-';
@@ -44,6 +45,8 @@ const CompareStatBar = ({ label, stat, player1Stats, player2Stats, leagueStats }
   const p2Wins = percentile1 !== null && percentile2 !== null && percentile2 > percentile1;
   const tie = percentile1 !== null && percentile2 !== null && percentile1 === percentile2;
 
+  const tooltip = getStatDescription(stat.key);
+
   return (
     <div className="flex items-center gap-2 py-2">
       {/* Player 1 side */}
@@ -71,11 +74,17 @@ const CompareStatBar = ({ label, stat, player1Stats, player2Stats, leagueStats }
         </div>
       </div>
 
-      {/* Center label */}
-      <div className="w-14 text-center">
-        <span className={`text-sm font-bold ${tie ? 'text-accent' : 'text-text-secondary'}`}>
+      {/* Center label with tooltip */}
+      <div className="w-14 text-center relative group">
+        <span className={`text-sm font-bold cursor-help border-b border-dotted border-text-muted/50 ${tie ? 'text-accent' : 'text-text-secondary'}`}>
           {label}
         </span>
+        {tooltip && (
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-bg-elevated border border-border rounded-lg shadow-lg text-xs text-text-primary font-normal tracking-normal whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+            {tooltip}
+            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-border" />
+          </div>
+        )}
       </div>
 
       {/* Player 2 side */}

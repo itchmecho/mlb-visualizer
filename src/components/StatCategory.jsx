@@ -51,6 +51,7 @@ const StatCategory = ({ title, stats, playerStats, leagueStats }) => {
             <StatBar
               key={stat.key}
               label={stat.label}
+              statKey={stat.key}
               value={formatStatValue(value, stat.key)}
               percentile={percentile}
             />
