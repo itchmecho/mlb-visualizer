@@ -8,11 +8,13 @@ import CompareView from './components/CompareView';
 import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers } from './utils/api';
 import { PERCENTILE_COLORS } from './utils/percentile';
 
-// Generate available seasons from 2001 to current year
+// Generate available seasons from 2001 to last completed season
+// 2026 season starts on Opening Day (late March), so exclude until then
 const currentYear = new Date().getFullYear();
+const latestSeason = 2025; // Update to currentYear after Opening Day 2026
 const AVAILABLE_SEASONS = Array.from(
-  { length: currentYear - 2000 },
-  (_, i) => currentYear - i
+  { length: latestSeason - 2000 },
+  (_, i) => latestSeason - i
 );
 
 // Theme toggle component
@@ -86,7 +88,7 @@ function App() {
   // Shared state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [season, setSeason] = useState(currentYear);
+  const [season, setSeason] = useState(latestSeason);
   const [isPitcher, setIsPitcher] = useState(false);
 
   const cardRef = useRef(null);
@@ -444,7 +446,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v2.0.0</span>
+          <span>v2.0.1</span>
         </div>
       </footer>
     </div>
