@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v1.1.0 | 2026-02-04
+// v1.2.0 | 2026-02-04
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -171,4 +171,52 @@ export const clearLeagueStatsCache = () => {
 export const isPitcherPosition = (player) => {
   const pitcherPositions = ['P', 'SP', 'RP', 'CL', 'TWP'];
   return pitcherPositions.includes(player?.primaryPosition?.abbreviation);
+};
+
+// Cache for standings (key: season, value: standings array)
+const standingsCache = new Map();
+
+/**
+ * Fetch MLB standings for a season
+ * @param {number} season - Season year
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of team standings
+ */
+export const fetchStandings = async (season, signal) => {
+  const cacheKey = `${season}`;
+
+  // Return cached data if available
+  if (standingsCache.has(cacheKey)) {
+    return standingsCache.get(cacheKey);
+  }
+
+  try {
+    // leagueId: 103 = American League, 104 = National League
+    const response = await fetch(
+      `${MLB_API_BASE}/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason&hydrate=team,division`,
+      { signal }
+    );
+    const data = await response.json();
+
+    // Flatten the records from all divisions
+    const allRecords = data.records?.flatMap(r => r.teamRecords) || [];
+
+    // Cache the results
+    standingsCache.set(cacheKey, allRecords);
+
+    return allRecords;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return [];
+    }
+    console.error('Standings fetch error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Clear the standings cache
+ */
+export const clearStandingsCache = () => {
+  standingsCache.clear();
 };

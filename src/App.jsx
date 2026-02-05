@@ -1,11 +1,12 @@
 // MLB Player Visualizer - Main App
-// v2.0.0 | 2026-02-04
+// v2.1.0 | 2026-02-04
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
 import PlayerCard from './components/PlayerCard';
 import CompareView from './components/CompareView';
-import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers } from './utils/api';
+import Standings from './components/Standings';
+import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchStandings } from './utils/api';
 import { PERCENTILE_COLORS } from './utils/percentile';
 
 // Generate available seasons from 2001 to last completed season
@@ -59,6 +60,16 @@ const ModeToggle = ({ mode, onToggle }) => (
     >
       Compare
     </button>
+    <button
+      onClick={() => onToggle('teams')}
+      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+        mode === 'teams'
+          ? 'bg-accent text-text-inverse shadow-sm'
+          : 'text-text-secondary hover:text-text-primary'
+      }`}
+    >
+      Teams
+    </button>
   </div>
 );
 
@@ -84,6 +95,10 @@ function App() {
   const [player2, setPlayer2] = useState(null);
   const [stats1, setStats1] = useState(null);
   const [stats2, setStats2] = useState(null);
+
+  // Teams mode state
+  const [standings, setStandings] = useState(null);
+  const [teamsLoading, setTeamsLoading] = useState(false);
 
   // Shared state
   const [loading, setLoading] = useState(false);
@@ -170,12 +185,15 @@ function App() {
   const handleSeasonChange = async (newSeason) => {
     setSeason(newSeason);
     setLeagueStats(null); // Clear cache to refetch for new season
+    setStandings(null); // Clear standings for new season
 
     if (mode === 'single' && selectedPlayer) {
       await fetchPlayerData(selectedPlayer, newSeason, 'single');
     } else if (mode === 'compare') {
       if (player1) await fetchPlayerData(player1, newSeason, 'player1');
       if (player2) await fetchPlayerData(player2, newSeason, 'player2');
+    } else if (mode === 'teams') {
+      await loadStandings(newSeason);
     }
   };
 
@@ -222,7 +240,7 @@ function App() {
     }
   };
 
-  const handleModeChange = (newMode) => {
+  const handleModeChange = async (newMode) => {
     setMode(newMode);
     setError(null);
     // Clear state when switching modes
@@ -231,14 +249,53 @@ function App() {
       setPlayer2(null);
       setStats1(null);
       setStats2(null);
-    } else {
+    } else if (newMode === 'compare') {
       setSelectedPlayer(null);
       setPlayerStats(null);
+    } else if (newMode === 'teams') {
+      setSelectedPlayer(null);
+      setPlayerStats(null);
+      setPlayer1(null);
+      setPlayer2(null);
+      setStats1(null);
+      setStats2(null);
+      // Fetch standings if not already loaded for this season
+      if (!standings) {
+        await loadStandings(season);
+      }
     }
+  };
+
+  const loadStandings = async (seasonYear) => {
+    setTeamsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchStandings(seasonYear);
+      setStandings(data);
+    } catch (err) {
+      console.error('Error loading standings:', err);
+      setError('Failed to load standings');
+    } finally {
+      setTeamsLoading(false);
+    }
+  };
+
+  const handleGoHome = () => {
+    setMode('single');
+    setSelectedPlayer(null);
+    setPlayerStats(null);
+    setPlayer1(null);
+    setPlayer2(null);
+    setStats1(null);
+    setStats2(null);
+    setStandings(null);
+    setLeagueStats(null);
+    setError(null);
   };
 
   const showCard = mode === 'single' && selectedPlayer && playerStats && !loading;
   const showCompare = mode === 'compare' && (player1 || player2) && !loading;
+  const showTeams = mode === 'teams';
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary theme-transition">
@@ -246,8 +303,12 @@ function App() {
       <header className="border-b border-border theme-transition sticky top-0 bg-bg-primary/95 backdrop-blur-sm z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between gap-4">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
+            {/* Logo - clickable to go home */}
+            <button
+              onClick={handleGoHome}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              title="Go to home"
+            >
               <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                 <span className="text-xl">⚾</span>
               </div>
@@ -256,7 +317,7 @@ function App() {
                   MLB VISUALIZER
                 </h1>
               </div>
-            </div>
+            </button>
 
             {/* Controls */}
             <div className="flex items-center gap-3">
@@ -280,7 +341,8 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Search Section */}
+        {/* Search Section - hidden in teams mode */}
+        {mode !== 'teams' && (
         <div className="mb-8">
           {mode === 'single' ? (
             <div className="max-w-xl">
@@ -317,6 +379,7 @@ function App() {
             </div>
           )}
         </div>
+        )}
 
         {/* Error State */}
         {error && (
@@ -391,8 +454,13 @@ function App() {
           </div>
         )}
 
+        {/* Teams/Standings View */}
+        {showTeams && (
+          <Standings standings={standings} season={season} loading={teamsLoading} />
+        )}
+
         {/* Empty State */}
-        {!selectedPlayer && !player1 && !player2 && !loading && (
+        {!selectedPlayer && !player1 && !player2 && !loading && mode !== 'teams' && (
           <div className="text-center py-16 animate-fade-in">
             <div className="text-7xl mb-6">⚾</div>
             <h2 className="font-display text-4xl text-text-primary mb-3 tracking-wide">
@@ -446,7 +514,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v2.0.1</span>
+          <span>v2.1.0</span>
         </div>
       </footer>
     </div>
