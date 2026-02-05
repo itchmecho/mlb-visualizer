@@ -442,8 +442,9 @@ function App() {
 
       {/* Footer */}
       <footer className="border-t border-border mt-auto theme-transition">
-        <div className="max-w-7xl mx-auto px-6 py-4 text-center text-xs text-text-muted">
-          Data from MLB Stats API • Not affiliated with MLB
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
+          <span>Data from MLB Stats API • Not affiliated with MLB</span>
+          <span>v2.0.0</span>
         </div>
       </footer>
     </div>
