@@ -1,9 +1,9 @@
 // CompareView component - Head-to-head player comparison
-// v1.0.0 | 2026-02-04
+// v1.1.0 | 2026-02-05
 
 import React from 'react';
 import CompareStatBar from './CompareStatBar';
-import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
+import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl, getTeamMlbUrl } from '../utils/teamData';
 
 // Stat configurations
 const PITCHER_STATS = [
@@ -80,7 +80,15 @@ const PlayerHeader = ({ player, stats, side }) => {
 
         {/* Team and position */}
         <p className="text-text-muted text-sm mt-1">
-          {player.currentTeam?.name || 'Free Agent'} • {player.primaryPosition?.abbreviation}
+          {(() => {
+            const url = getTeamMlbUrl(player.currentTeam?.name);
+            const name = player.currentTeam?.name || 'Free Agent';
+            return url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
+                {name}
+              </a>
+            ) : name;
+          })()} • {player.primaryPosition?.abbreviation}
         </p>
 
         {/* Quick stats */}

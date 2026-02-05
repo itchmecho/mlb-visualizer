@@ -10,22 +10,31 @@
       "Bash(npm run build:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix division grouping - use team.division.id path\n\nThe API returns division ID at record.team.division.id,\nnot record.division.id\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Skill(ralph-loop:ralph-loop)"
     ]
   },
   "hooks": {
-    "preToolUse": [
+    "PreToolUse": [
       {
-        "matcher": "Bash",
-        "pattern": "git commit",
-        "command": "echo '📦 Remember: Push to main to auto-deploy to GitHub Pages'"
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '📦 Remember: Push to main to auto-deploy to GitHub Pages'"
+          }
+        ]
       }
     ],
-    "postToolUse": [
+    "PostToolUse": [
       {
-        "matcher": "Bash",
-        "pattern": "git commit",
-        "command": "echo '✓ Committed! Run: git push → deploys to https://itchmecho.github.io/mlb-visualizer/'"
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '✓ Committed! Run: git push → deploys to https://itchmecho.github.io/mlb-visualizer/'"
+          }
+        ]
       }
     ]
   }

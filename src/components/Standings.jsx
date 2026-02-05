@@ -1,8 +1,8 @@
 // Team Standings Component
-// v1.2.0 | 2026-02-04
+// v1.3.0 | 2026-02-05
 
 import React from 'react';
-import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
+import { getTeamLogoUrl, getTeamMlbUrl, TEAM_DATA } from '../utils/teamData';
 
 // World Series winners by year (team ID)
 const WORLD_SERIES_WINNERS = {
@@ -61,6 +61,7 @@ const TeamRow = ({ team, rank, isLeader, season }) => {
   const last10Record = last10 ? `${last10.wins}-${last10.losses}` : '-';
   const runDiff = team.runDifferential || 0;
   const teamColor = getTeamColor(teamName);
+  const teamUrl = getTeamMlbUrl(teamName);
   const isWorldSeriesWinner = WORLD_SERIES_WINNERS[season] === teamId;
 
   return (
@@ -98,9 +99,20 @@ const TeamRow = ({ team, rank, isLeader, season }) => {
           )}
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className={`font-medium text-text-primary ${isLeader ? 'text-accent' : ''}`}>
-                {teamName}
-              </span>
+              {teamUrl ? (
+                <a
+                  href={teamUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`font-medium hover:underline transition-colors ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
+                >
+                  {teamName}
+                </a>
+              ) : (
+                <span className={`font-medium text-text-primary ${isLeader ? 'text-accent' : ''}`}>
+                  {teamName}
+                </span>
+              )}
               {isWorldSeriesWinner && (
                 <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded tracking-wide">
                   🏆 WS CHAMP

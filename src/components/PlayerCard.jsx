@@ -1,9 +1,9 @@
 // PlayerCard component - Main stat card
-// v1.3.0 | 2026-02-04
+// v1.4.0 | 2026-02-05
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
-import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
+import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl, getTeamMlbUrl } from '../utils/teamData';
 import { enhanceHittingStats } from '../utils/api';
 
 // Stat configurations for pitchers
@@ -99,8 +99,10 @@ const PlayerPhoto = ({ playerId, playerName }) => {
 };
 
 const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPitcher }, ref) => {
-  const teamData = getTeamData(player.currentTeam?.name);
+  const teamName = player.currentTeam?.name;
+  const teamData = getTeamData(teamName);
   const teamLogoUrl = getTeamLogoUrl(teamData.id);
+  const teamUrl = getTeamMlbUrl(teamName);
 
   const statConfig = isPitcher ? PITCHER_STATS : HITTER_STATS;
   const categories = isPitcher ? PITCHER_CATEGORIES : HITTER_CATEGORIES;
@@ -148,9 +150,20 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
           </h1>
 
           {/* Team Name */}
-          <p className="text-sm text-text-muted mt-2 font-medium tracking-wide">
-            {player.currentTeam?.name?.toUpperCase() || 'FREE AGENT'}
-          </p>
+          {teamUrl ? (
+            <a
+              href={teamUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-text-muted mt-2 font-medium tracking-wide hover:text-accent transition-colors inline-block"
+            >
+              {teamName?.toUpperCase() || 'FREE AGENT'}
+            </a>
+          ) : (
+            <p className="text-sm text-text-muted mt-2 font-medium tracking-wide">
+              {teamName?.toUpperCase() || 'FREE AGENT'}
+            </p>
+          )}
 
           {/* Season Badge */}
           <div className="flex items-center gap-2 mt-4">
