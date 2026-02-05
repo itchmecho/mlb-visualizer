@@ -1,17 +1,17 @@
 // Team Standings Component
-// v1.1.0 | 2026-02-04
+// v1.1.1 | 2026-02-04
 
 import React from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
 
-// Division display order and names
+// Division display order and names (IDs from MLB Stats API)
 const DIVISIONS = [
-  { id: 200, name: 'AL East', league: 'American League' },
-  { id: 201, name: 'AL Central', league: 'American League' },
-  { id: 202, name: 'AL West', league: 'American League' },
-  { id: 203, name: 'NL East', league: 'National League' },
-  { id: 204, name: 'NL Central', league: 'National League' },
-  { id: 205, name: 'NL West', league: 'National League' },
+  { id: 201, name: 'AL East', league: 'American League' },
+  { id: 202, name: 'AL Central', league: 'American League' },
+  { id: 200, name: 'AL West', league: 'American League' },
+  { id: 204, name: 'NL East', league: 'National League' },
+  { id: 205, name: 'NL Central', league: 'National League' },
+  { id: 203, name: 'NL West', league: 'National League' },
 ];
 
 // Get team primary color by name
