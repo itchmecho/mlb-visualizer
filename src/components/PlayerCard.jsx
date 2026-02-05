@@ -1,5 +1,5 @@
 // PlayerCard component - Main stat card
-// v1.2.0 | 2026-02-04
+// v1.3.0 | 2026-02-04
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
@@ -183,6 +183,35 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
                 <span className="text-text-primary font-bold text-xs">{value || '?'}</span>
               </div>
             ))}
+          </div>
+
+          {/* External Links */}
+          <div className="mt-4 pt-4 border-t border-border-light">
+            <span className="text-xs text-text-muted font-medium block mb-2">LEARN MORE</span>
+            <div className="flex gap-2">
+              <a
+                href={`https://en.wikipedia.org/wiki/${player.fullName?.replace(/ /g, '_')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-tertiary hover:bg-bg-primary rounded-lg text-text-secondary hover:text-text-primary transition-colors text-xs font-medium"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.09 13.119c-.936 1.932-2.217 4.548-2.853 5.728-.616 1.074-1.127.931-1.532.029-1.406-3.321-4.293-9.144-5.651-12.409-.251-.601-.441-.987-.619-1.139-.181-.15-.554-.24-1.122-.271C.103 5.033 0 4.982 0 4.898v-.455l.052-.045c.924-.005 5.401 0 5.401 0l.051.045v.434c0 .119-.075.176-.225.176l-.564.031c-.485.029-.727.164-.727.436 0 .135.053.33.166.601 1.082 2.646 4.818 10.521 4.818 10.521l.136.046 2.411-4.81-.482-1.067-1.658-3.264s-.318-.654-.428-.872c-.728-1.443-.712-1.518-1.447-1.617-.207-.023-.313-.05-.313-.149v-.468l.06-.045h4.292l.113.037v.451c0 .105-.076.15-.227.15l-.308.047c-.792.061-.661.381-.136 1.422l1.582 3.252 1.758-3.504c.293-.64.233-.801.111-.947-.07-.084-.305-.178-.705-.178h-.263c-.134 0-.2-.082-.2-.21v-.455l.052-.045h3.932l.054.045v.455c0 .119-.074.18-.22.18-.937.012-1.157.209-1.652 1.074 0 0-.869 1.68-1.876 3.727l.554 1.092 2.774-5.483c.289-.586.177-.793-.097-.895-.135-.054-.326-.086-.571-.086h-.093c-.148 0-.22-.07-.22-.195v-.46l.052-.045h3.933l.053.045v.455c0 .119-.074.18-.219.18-.937.012-1.157.209-1.652 1.074l-3.645 7.106c-.605 1.165-1.196 2.326-1.775 3.482-.493.988-.94.871-1.313.021-.688-1.561-1.381-3.124-2.073-4.687-.549 1.078-1.09 2.151-1.636 3.228-.493.989-.94.872-1.313.021-.456-1.042-4.08-8.323-4.08-8.323-.727-1.443-.712-1.518-1.447-1.617-.207-.023-.313-.05-.313-.149v-.468l.06-.045h4.292l.113.037z"/>
+                </svg>
+                Wikipedia
+              </a>
+              <a
+                href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName || '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-tertiary hover:bg-bg-primary rounded-lg text-text-secondary hover:text-text-primary transition-colors text-xs font-medium"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                Baseball Reference
+              </a>
+            </div>
           </div>
         </div>
 
