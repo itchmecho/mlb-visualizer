@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl:*)"
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh *)"
+    ]
+  },
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "Bash",
+        "pattern": "git commit",
+        "command": "echo '✓ Committed! Run `git push` to deploy to GitHub Pages'"
+      }
     ]
   }
 }
