@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v3.0.0 | 2026-02-05
+// v3.1.0 | 2026-02-05
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -93,6 +93,7 @@ function App() {
   const [isPitcher, setIsPitcher] = useState(false);
 
   const cardRef = useRef(null);
+  const cardContainerRef = useRef(null);
   const abortControllerRef = useRef(null);
 
   // Apply theme to document
@@ -100,6 +101,15 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // Smooth scroll to card when player data loads
+  useEffect(() => {
+    if ((stats1 || stats2) && cardContainerRef.current && !loading) {
+      setTimeout(() => {
+        cardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [stats1, stats2, loading]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -293,13 +303,14 @@ function App() {
             </button>
 
             {/* Controls */}
-            <div className="flex items-center gap-3">
+            <nav className="flex items-center gap-3" aria-label="Main navigation">
               <ViewToggle view={view} onToggle={handleViewChange} />
 
               <select
                 value={season}
                 onChange={(e) => handleSeasonChange(parseInt(e.target.value, 10))}
-                className="px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:border-accent cursor-pointer theme-transition"
+                className="px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-bold focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition"
+                aria-label="Select season year"
               >
                 {AVAILABLE_SEASONS.map(year => (
                   <option key={year} value={year}>{year}</option>
@@ -307,7 +318,7 @@ function App() {
               </select>
 
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
-            </div>
+            </nav>
           </div>
         </div>
       </header>
@@ -371,7 +382,7 @@ function App() {
 
         {/* Single Player Card */}
         {showSingleCard && (
-          <div className="animate-fade-in">
+          <div className="animate-fade-in" ref={cardContainerRef}>
             <div className="flex justify-between items-center mb-4">
               {/* Compare button */}
               {!isComparing && (
@@ -504,7 +515,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v3.0.0</span>
+          <span>v3.1.0</span>
         </div>
       </footer>
     </div>
