@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v2.2.0 | 2026-02-04
+// v3.0.0 | 2026-02-05
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -10,7 +10,6 @@ import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, f
 import { PERCENTILE_COLORS } from './utils/percentile';
 
 // Generate available seasons from 2001 to last completed season
-// 2026 season starts on Opening Day (late March), so exclude until then
 const currentYear = new Date().getFullYear();
 const latestSeason = 2025; // Update to currentYear after Opening Day 2026
 const AVAILABLE_SEASONS = Array.from(
@@ -37,33 +36,23 @@ const ThemeToggle = ({ theme, onToggle }) => (
   </button>
 );
 
-// Mode toggle component
-const ModeToggle = ({ mode, onToggle }) => (
+// View toggle component (Players / Teams)
+const ViewToggle = ({ view, onToggle }) => (
   <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
     <button
-      onClick={() => onToggle('single')}
+      onClick={() => onToggle('players')}
       className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-        mode === 'single'
+        view === 'players'
           ? 'bg-accent text-text-inverse shadow-sm'
           : 'text-text-secondary hover:text-text-primary'
       }`}
     >
-      Single
-    </button>
-    <button
-      onClick={() => onToggle('compare')}
-      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-        mode === 'compare'
-          ? 'bg-accent text-text-inverse shadow-sm'
-          : 'text-text-secondary hover:text-text-primary'
-      }`}
-    >
-      Compare
+      Players
     </button>
     <button
       onClick={() => onToggle('teams')}
       className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-        mode === 'teams'
+        view === 'teams'
           ? 'bg-accent text-text-inverse shadow-sm'
           : 'text-text-secondary hover:text-text-primary'
       }`}
@@ -82,21 +71,18 @@ function App() {
     return 'dark';
   });
 
-  // Mode state (single or compare)
-  const [mode, setMode] = useState('single');
+  // View state: 'players' or 'teams'
+  const [view, setView] = useState('players');
 
-  // Single player state
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [playerStats, setPlayerStats] = useState(null);
-  const [leagueStats, setLeagueStats] = useState(null);
-
-  // Compare mode state
+  // Unified player state (player1 = primary, player2 = comparison)
   const [player1, setPlayer1] = useState(null);
   const [player2, setPlayer2] = useState(null);
   const [stats1, setStats1] = useState(null);
   const [stats2, setStats2] = useState(null);
+  const [leagueStats, setLeagueStats] = useState(null);
+  const [isComparing, setIsComparing] = useState(false);
 
-  // Teams mode state
+  // Teams state
   const [standings, setStandings] = useState(null);
   const [teamsLoading, setTeamsLoading] = useState(false);
 
@@ -119,7 +105,7 @@ function App() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  const fetchPlayerData = async (player, seasonYear = season, slot = 'single') => {
+  const fetchPlayerData = async (player, seasonYear = season, slot = 'player1') => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -130,9 +116,7 @@ function App() {
     setLoading(true);
     setError(null);
 
-    if (slot === 'single') {
-      setSelectedPlayer(player);
-    } else if (slot === 'player1') {
+    if (slot === 'player1') {
       setPlayer1(player);
     } else if (slot === 'player2') {
       setPlayer2(player);
@@ -159,10 +143,7 @@ function App() {
 
       const league = await fetchLeagueStats(seasonYear, statGroup, abortController.signal);
 
-      if (slot === 'single') {
-        setPlayerStats(stats);
-        setLeagueStats(league);
-      } else if (slot === 'player1') {
+      if (slot === 'player1') {
         setStats1(stats);
         setLeagueStats(league);
       } else if (slot === 'player2') {
@@ -184,15 +165,13 @@ function App() {
 
   const handleSeasonChange = async (newSeason) => {
     setSeason(newSeason);
-    setLeagueStats(null); // Clear cache to refetch for new season
-    setStandings(null); // Clear standings for new season
+    setLeagueStats(null);
+    setStandings(null);
 
-    if (mode === 'single' && selectedPlayer) {
-      await fetchPlayerData(selectedPlayer, newSeason, 'single');
-    } else if (mode === 'compare') {
+    if (view === 'players') {
       if (player1) await fetchPlayerData(player1, newSeason, 'player1');
       if (player2) await fetchPlayerData(player2, newSeason, 'player2');
-    } else if (mode === 'teams') {
+    } else if (view === 'teams') {
       await loadStandings(newSeason);
     }
   };
@@ -210,9 +189,9 @@ function App() {
       });
 
       const link = document.createElement('a');
-      const playerName = mode === 'compare'
+      const playerName = player2
         ? `${player1?.lastName || 'Player1'}_vs_${player2?.lastName || 'Player2'}`
-        : selectedPlayer?.fullName?.replace(/\s+/g, '_') || 'player';
+        : player1?.fullName?.replace(/\s+/g, '_') || 'player';
       link.download = `${playerName}_${season}_stats.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
@@ -227,7 +206,7 @@ function App() {
     try {
       const results = await searchPlayers(name);
       if (results.length > 0) {
-        await fetchPlayerData(results[0], season, 'single');
+        await fetchPlayerData(results[0], season, 'player1');
       } else {
         setError(`No player found for "${name}"`);
         setLoading(false);
@@ -240,29 +219,12 @@ function App() {
     }
   };
 
-  const handleModeChange = async (newMode) => {
-    setMode(newMode);
+  const handleViewChange = async (newView) => {
+    setView(newView);
     setError(null);
-    // Clear state when switching modes
-    if (newMode === 'single') {
-      setPlayer1(null);
-      setPlayer2(null);
-      setStats1(null);
-      setStats2(null);
-    } else if (newMode === 'compare') {
-      setSelectedPlayer(null);
-      setPlayerStats(null);
-    } else if (newMode === 'teams') {
-      setSelectedPlayer(null);
-      setPlayerStats(null);
-      setPlayer1(null);
-      setPlayer2(null);
-      setStats1(null);
-      setStats2(null);
-      // Fetch standings if not already loaded for this season
-      if (!standings) {
-        await loadStandings(season);
-      }
+
+    if (newView === 'teams' && !standings) {
+      await loadStandings(season);
     }
   };
 
@@ -281,21 +243,32 @@ function App() {
   };
 
   const handleGoHome = () => {
-    setMode('single');
-    setSelectedPlayer(null);
-    setPlayerStats(null);
+    setView('players');
     setPlayer1(null);
     setPlayer2(null);
     setStats1(null);
     setStats2(null);
+    setIsComparing(false);
     setStandings(null);
     setLeagueStats(null);
     setError(null);
   };
 
-  const showCard = mode === 'single' && selectedPlayer && playerStats && !loading;
-  const showCompare = mode === 'compare' && (player1 || player2) && !loading;
-  const showTeams = mode === 'teams';
+  const handleStartCompare = () => {
+    setIsComparing(true);
+  };
+
+  const handleClearComparison = () => {
+    setPlayer2(null);
+    setStats2(null);
+    setIsComparing(false);
+  };
+
+  const hasPlayer1 = player1 && stats1 && !loading;
+  const hasPlayer2 = player2 && stats2;
+  const showSingleCard = view === 'players' && hasPlayer1 && !hasPlayer2;
+  const showCompare = view === 'players' && hasPlayer1 && hasPlayer2 && !loading;
+  const showTeams = view === 'teams';
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary theme-transition">
@@ -321,7 +294,7 @@ function App() {
 
             {/* Controls */}
             <div className="flex items-center gap-3">
-              <ModeToggle mode={mode} onToggle={handleModeChange} />
+              <ViewToggle view={view} onToggle={handleViewChange} />
 
               <select
                 value={season}
@@ -341,30 +314,29 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Search Section - hidden in teams mode */}
-        {mode !== 'teams' && (
-        <div className="mb-8">
-          {mode === 'single' ? (
+        {/* Search Section - players view only */}
+        {view === 'players' && (
+          <div className="mb-8">
             <div className="max-w-xl">
-              <PlayerSearch onSelect={(p) => fetchPlayerData(p, season, 'single')} loading={loading} />
+              <PlayerSearch
+                onSelect={(p) => fetchPlayerData(p, season, 'player1')}
+                loading={loading}
+                placeholder="Search any player..."
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <label className="block text-sm font-medium text-text-muted mb-2">Player 1</label>
-                <PlayerSearch
-                  onSelect={(p) => fetchPlayerData(p, season, 'player1')}
-                  loading={loading}
-                  placeholder="Search first player..."
-                />
-                {player1 && (
-                  <div className="mt-2 text-sm text-text-secondary">
-                    Selected: <span className="font-medium text-text-primary">{player1.fullName}</span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-muted mb-2">Player 2</label>
+
+            {/* Second search when comparing */}
+            {isComparing && hasPlayer1 && (
+              <div className="max-w-xl mt-4 animate-fade-in">
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-sm font-medium text-text-muted">Compare with:</label>
+                  <button
+                    onClick={handleClearComparison}
+                    className="text-xs text-accent hover:text-accent-hover transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
                 <PlayerSearch
                   onSelect={(p) => fetchPlayerData(p, season, 'player2')}
                   loading={loading}
@@ -372,13 +344,12 @@ function App() {
                 />
                 {player2 && (
                   <div className="mt-2 text-sm text-text-secondary">
-                    Selected: <span className="font-medium text-text-primary">{player2.fullName}</span>
+                    Comparing with: <span className="font-medium text-text-primary">{player2.fullName}</span>
                   </div>
                 )}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
         {/* Error State */}
@@ -399,9 +370,23 @@ function App() {
         )}
 
         {/* Single Player Card */}
-        {showCard && (
+        {showSingleCard && (
           <div className="animate-fade-in">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between items-center mb-4">
+              {/* Compare button */}
+              {!isComparing && (
+                <button
+                  onClick={handleStartCompare}
+                  className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-elevated border border-border rounded-lg text-text-secondary hover:text-text-primary font-medium transition-all theme-transition"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  Compare with...
+                </button>
+              )}
+              {isComparing && <div />}
+
               <button
                 onClick={handleExport}
                 className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-text-inverse rounded-lg font-medium transition-colors"
@@ -415,11 +400,12 @@ function App() {
             <div className="overflow-x-auto pb-4">
               <PlayerCard
                 ref={cardRef}
-                player={selectedPlayer}
-                playerStats={playerStats}
+                player={player1}
+                playerStats={stats1}
                 leagueStats={leagueStats}
                 season={season}
                 isPitcher={isPitcher}
+                onCompare={handleStartCompare}
               />
             </div>
           </div>
@@ -428,11 +414,19 @@ function App() {
         {/* Compare View */}
         {showCompare && (
           <div className="animate-fade-in">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <button
+                onClick={handleClearComparison}
+                className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-elevated border border-border rounded-lg text-text-secondary hover:text-text-primary font-medium transition-all theme-transition"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear comparison
+              </button>
               <button
                 onClick={handleExport}
                 className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-text-inverse rounded-lg font-medium transition-colors"
-                disabled={!player1 || !player2}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -460,36 +454,32 @@ function App() {
         )}
 
         {/* Empty State */}
-        {!selectedPlayer && !player1 && !player2 && !loading && mode !== 'teams' && (
+        {!player1 && !loading && view === 'players' && (
           <div className="text-center py-16 animate-fade-in">
             <div className="text-7xl mb-6">⚾</div>
             <h2 className="font-display text-4xl text-text-primary mb-3 tracking-wide">
-              {mode === 'single' ? 'SEARCH ANY PLAYER' : 'COMPARE TWO PLAYERS'}
+              SEARCH ANY PLAYER
             </h2>
             <p className="text-text-muted max-w-md mx-auto mb-8">
-              {mode === 'single'
-                ? 'See how they rank against the league with detailed percentile breakdowns'
-                : 'Go head-to-head with side-by-side stat comparisons'}
+              See how they rank against the league with detailed percentile breakdowns
             </p>
-            {mode === 'single' && (
-              <div className="flex flex-wrap justify-center gap-2 text-sm">
-                <span className="text-text-muted">Try:</span>
-                {['Shohei Ohtani', 'Aaron Judge', 'Mookie Betts', 'Gerrit Cole'].map(name => (
-                  <button
-                    key={name}
-                    onClick={() => handleQuickSelect(name)}
-                    className="px-4 py-2 bg-bg-tertiary hover:bg-bg-elevated border border-border rounded-full text-text-secondary hover:text-text-primary transition-all theme-transition"
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-wrap justify-center gap-2 text-sm">
+              <span className="text-text-muted">Try:</span>
+              {['Shohei Ohtani', 'Aaron Judge', 'Mookie Betts', 'Gerrit Cole'].map(name => (
+                <button
+                  key={name}
+                  onClick={() => handleQuickSelect(name)}
+                  className="px-4 py-2 bg-bg-tertiary hover:bg-bg-elevated border border-border rounded-full text-text-secondary hover:text-text-primary transition-all theme-transition"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Legend */}
-        {(showCard || showCompare) && (
+        {(showSingleCard || showCompare) && (
           <div className="mt-8 p-5 bg-bg-card rounded-xl border border-border theme-transition animate-fade-in">
             <h3 className="text-xs font-bold text-text-muted tracking-wide mb-4">PERCENTILE LEGEND</h3>
             <div className="flex flex-wrap gap-4 text-sm">
@@ -514,7 +504,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v2.2.0</span>
+          <span>v3.0.0</span>
         </div>
       </footer>
     </div>
