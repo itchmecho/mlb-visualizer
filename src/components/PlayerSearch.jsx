@@ -1,5 +1,5 @@
 // PlayerSearch component - Search input with autocomplete
-// v1.2.0 | 2026-02-04
+// v1.3.0 | 2026-02-05
 
 import React, { useState, useEffect, useRef } from 'react';
 import { searchPlayers } from '../utils/api';
@@ -10,7 +10,10 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchedOnce, setSearchedOnce] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const abortControllerRef = useRef(null);
+  const listRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -20,6 +23,7 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
     if (query.length < 2) {
       setResults([]);
       setSearchedOnce(false);
+      setFocusedIndex(-1);
       return;
     }
 
@@ -33,6 +37,7 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
         if (!abortController.signal.aborted) {
           setResults(players);
           setSearchedOnce(true);
+          setFocusedIndex(-1);
         }
       } catch (err) {
         if (err.name !== 'AbortError' && !abortController.signal.aborted) {
@@ -56,15 +61,43 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
     setQuery('');
     setResults([]);
     setSearchedOnce(false);
+    setFocusedIndex(-1);
   };
 
+  const handleKeyDown = (e) => {
+    if (!results.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex(prev => Math.min(prev + 1, results.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex(prev => Math.max(prev - 1, -1));
+    } else if (e.key === 'Enter' && focusedIndex >= 0) {
+      e.preventDefault();
+      handleSelect(results[focusedIndex]);
+    } else if (e.key === 'Escape') {
+      setResults([]);
+      setFocusedIndex(-1);
+      inputRef.current?.blur();
+    }
+  };
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex >= 0 && listRef.current) {
+      const items = listRef.current.querySelectorAll('[role="option"]');
+      items[focusedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [focusedIndex]);
+
   // Player avatar fallback component
-  const PlayerAvatar = ({ playerId }) => {
+  const PlayerAvatar = ({ playerId, playerName }) => {
     const [imgError, setImgError] = useState(false);
 
     if (imgError) {
       return (
-        <div className="w-10 h-10 bg-bg-tertiary rounded-full flex items-center justify-center text-text-muted">
+        <div className="w-10 h-10 bg-bg-tertiary rounded-full flex items-center justify-center text-text-muted" aria-hidden="true">
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
           </svg>
@@ -76,7 +109,7 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
       <div className="w-10 h-10 bg-bg-tertiary rounded-full overflow-hidden flex-shrink-0">
         <img
           src={getPlayerHeadshotUrl(playerId)}
-          alt=""
+          alt={`${playerName} headshot`}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
         />
@@ -84,24 +117,36 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
     );
   };
 
+  const showDropdown = query.length >= 2 && !loading;
+  const listboxId = 'player-search-listbox';
+
   return (
     <div className="relative">
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <input
+            ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className="w-full px-4 py-3 bg-bg-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all theme-transition"
             disabled={loading}
+            role="combobox"
+            aria-expanded={showDropdown && results.length > 0}
+            aria-controls={listboxId}
+            aria-activedescendant={focusedIndex >= 0 ? `player-option-${focusedIndex}` : undefined}
+            aria-label="Search for a player"
+            autoComplete="off"
           />
           {/* Search icon */}
           <svg
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -114,24 +159,39 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
 
         {/* Loading spinner */}
         {(searching || loading) && (
-          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" role="status" aria-label="Loading">
+            <span className="sr-only">Searching...</span>
+          </div>
         )}
       </div>
 
       {/* Results dropdown */}
-      {query.length >= 2 && !loading && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border rounded-xl overflow-hidden shadow-theme-xl z-50 max-h-80 overflow-y-auto theme-transition">
+      {showDropdown && (
+        <div
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-label="Search results"
+          className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border rounded-xl overflow-hidden shadow-theme-xl z-50 max-h-80 overflow-y-auto theme-transition"
+        >
           {results.length > 0 ? (
-            results.map(player => {
+            results.map((player, index) => {
               const teamData = getTeamData(player.currentTeam?.name);
 
               return (
                 <button
                   key={player.id}
+                  id={`player-option-${index}`}
+                  role="option"
+                  aria-selected={focusedIndex === index}
                   onClick={() => handleSelect(player)}
-                  className="w-full px-4 py-3 text-left hover:bg-bg-elevated transition-colors flex items-center gap-3 border-b border-border-light last:border-0"
+                  className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b border-border-light last:border-0 focus:outline-none ${
+                    focusedIndex === index
+                      ? 'bg-bg-elevated'
+                      : 'hover:bg-bg-elevated'
+                  }`}
                 >
-                  <PlayerAvatar playerId={player.id} />
+                  <PlayerAvatar playerId={player.id} playerName={player.fullName} />
 
                   <div className="flex-1 min-w-0">
                     <div className="text-text-primary font-medium truncate">
@@ -141,11 +201,12 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
                       <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: teamData.primary }}
+                        aria-hidden="true"
                       />
                       <span className="truncate">
                         {player.currentTeam?.name || 'Free Agent'}
                       </span>
-                      <span className="text-text-muted">•</span>
+                      <span className="text-text-muted" aria-hidden="true">•</span>
                       <span className="text-text-muted">
                         {player.primaryPosition?.abbreviation}
                       </span>
@@ -155,7 +216,7 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
               );
             })
           ) : searchedOnce && !searching ? (
-            <div className="px-4 py-6 text-center text-text-muted">
+            <div className="px-4 py-6 text-center text-text-muted" role="status">
               No players found for "{query}"
             </div>
           ) : null}

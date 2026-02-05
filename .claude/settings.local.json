@@ -11,7 +11,9 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix division grouping - use team.division.id path\n\nThe API returns division ID at record.team.division.id,\nnot record.division.id\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
-      "Skill(ralph-loop:ralph-loop)"
+      "Skill(ralph-loop:ralph-loop)",
+      "Bash(SKIP_DEPLOY_CHECK=1 git add:*)",
+      "Bash(SKIP_DEPLOY_CHECK=1 git commit:*)"
     ]
   },
   "hooks": {
