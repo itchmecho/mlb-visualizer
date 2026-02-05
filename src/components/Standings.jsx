@@ -1,8 +1,37 @@
 // Team Standings Component
-// v1.1.1 | 2026-02-04
+// v1.2.0 | 2026-02-04
 
 import React from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
+
+// World Series winners by year (team ID)
+const WORLD_SERIES_WINNERS = {
+  2001: 109, // Arizona Diamondbacks
+  2002: 108, // Anaheim Angels (now LA Angels)
+  2003: 146, // Florida Marlins (now Miami)
+  2004: 111, // Boston Red Sox
+  2005: 145, // Chicago White Sox
+  2006: 138, // St. Louis Cardinals
+  2007: 111, // Boston Red Sox
+  2008: 143, // Philadelphia Phillies
+  2009: 147, // New York Yankees
+  2010: 137, // San Francisco Giants
+  2011: 138, // St. Louis Cardinals
+  2012: 137, // San Francisco Giants
+  2013: 111, // Boston Red Sox
+  2014: 137, // San Francisco Giants
+  2015: 118, // Kansas City Royals
+  2016: 112, // Chicago Cubs
+  2017: 117, // Houston Astros
+  2018: 111, // Boston Red Sox
+  2019: 120, // Washington Nationals
+  2020: 119, // Los Angeles Dodgers
+  2021: 144, // Atlanta Braves
+  2022: 117, // Houston Astros
+  2023: 140, // Texas Rangers
+  2024: 119, // Los Angeles Dodgers
+  2025: 141, // Toronto Blue Jays
+};
 
 // Division display order and names (IDs from MLB Stats API)
 const DIVISIONS = [
@@ -20,7 +49,7 @@ const getTeamColor = (teamName) => {
   return team?.primary || '#666';
 };
 
-const TeamRow = ({ team, rank, isLeader }) => {
+const TeamRow = ({ team, rank, isLeader, season }) => {
   const teamName = team.team?.name || 'Unknown';
   const teamId = team.team?.id;
   const wins = team.wins || 0;
@@ -32,6 +61,7 @@ const TeamRow = ({ team, rank, isLeader }) => {
   const last10Record = last10 ? `${last10.wins}-${last10.losses}` : '-';
   const runDiff = team.runDifferential || 0;
   const teamColor = getTeamColor(teamName);
+  const isWorldSeriesWinner = WORLD_SERIES_WINNERS[season] === teamId;
 
   return (
     <tr
@@ -67,10 +97,17 @@ const TeamRow = ({ team, rank, isLeader }) => {
             />
           )}
           <div className="flex flex-col">
-            <span className={`font-medium text-text-primary ${isLeader ? 'text-accent' : ''}`}>
-              {teamName}
-            </span>
-            {isLeader && (
+            <div className="flex items-center gap-2">
+              <span className={`font-medium text-text-primary ${isLeader ? 'text-accent' : ''}`}>
+                {teamName}
+              </span>
+              {isWorldSeriesWinner && (
+                <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded tracking-wide">
+                  🏆 WS CHAMP
+                </span>
+              )}
+            </div>
+            {isLeader && !isWorldSeriesWinner && (
               <span className="text-xs text-accent font-medium tracking-wide">
                 DIVISION LEADER
               </span>
@@ -129,7 +166,7 @@ const TeamRow = ({ team, rank, isLeader }) => {
   );
 };
 
-const DivisionTable = ({ division, teams, animationDelay }) => {
+const DivisionTable = ({ division, teams, animationDelay, season }) => {
   if (!teams || teams.length === 0) return null;
 
   // Sort by division rank
@@ -171,6 +208,7 @@ const DivisionTable = ({ division, teams, animationDelay }) => {
                 team={team}
                 rank={index + 1}
                 isLeader={index === 0}
+                season={season}
               />
             ))}
           </tbody>
@@ -250,6 +288,7 @@ const Standings = ({ standings, season, loading }) => {
               division={division}
               teams={standingsByDivision[division.id]}
               animationDelay={index * 100}
+              season={season}
             />
           ))}
         </div>
@@ -268,6 +307,7 @@ const Standings = ({ standings, season, loading }) => {
               division={division}
               teams={standingsByDivision[division.id]}
               animationDelay={(index + 3) * 100}
+              season={season}
             />
           ))}
         </div>
