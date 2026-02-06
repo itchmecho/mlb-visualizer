@@ -193,11 +193,12 @@ function App() {
       const resp = await fetch(cssUrl);
       let cssText = await resp.text();
 
-      // Find all url() references and replace with data URIs
+      // Find all url() references and fetch them sequentially to avoid race conditions
       const urlRegex = /url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g;
       const matches = [...cssText.matchAll(urlRegex)];
 
-      await Promise.all(
+      // Fetch all fonts in parallel, then replace sequentially
+      const replacements = await Promise.all(
         matches.map(async (match) => {
           try {
             const fontResp = await fetch(match[1]);
@@ -207,12 +208,16 @@ function App() {
               reader.onloadend = () => resolve(reader.result);
               reader.readAsDataURL(blob);
             });
-            cssText = cssText.replace(match[1], dataUri);
+            return { url: match[1], dataUri };
           } catch {
-            // Skip this font file if fetch fails
+            return null;
           }
         })
       );
+
+      for (const r of replacements) {
+        if (r) cssText = cssText.replaceAll(r.url, r.dataUri);
+      }
 
       return cssText;
     } catch {
@@ -223,13 +228,15 @@ function App() {
   const handleExport = async () => {
     if (!cardRef.current) return;
 
+    let fontStyle = null;
+    const el = cardRef.current;
+    const originalSrcs = [];
+
     try {
       const { toPng } = await import('html-to-image');
-      const el = cardRef.current;
 
       // Step 1: Embed Google Fonts as inline @font-face with data URI sources
       const fontCss = await embedFonts();
-      let fontStyle = null;
       if (fontCss) {
         fontStyle = document.createElement('style');
         fontStyle.textContent = fontCss;
@@ -238,7 +245,6 @@ function App() {
 
       // Step 2: Pre-convert external images to inline data URIs
       const images = el.querySelectorAll('img');
-      const originalSrcs = [];
       await Promise.all(
         Array.from(images).map(async (img, i) => {
           originalSrcs[i] = img.src;
@@ -268,7 +274,9 @@ function App() {
         quality: 1,
         cacheBust: true,
         filter: (node) => {
-          if (node.classList?.contains('opacity-0')) return false;
+          try {
+            if (node?.classList?.contains('opacity-0')) return false;
+          } catch { /* ignore */ }
           return true;
         },
       };
@@ -278,7 +286,7 @@ function App() {
       const dataUrl = await toPng(el, options);
 
       // Restore everything
-      if (fontStyle) fontStyle.remove();
+      if (fontStyle) { fontStyle.remove(); fontStyle = null; }
       images.forEach((img, i) => {
         if (originalSrcs[i]) img.src = originalSrcs[i];
       });
@@ -292,9 +300,14 @@ function App() {
       link.href = dataUrl;
       link.click();
     } catch (err) {
-      console.error('Export error:', err);
-      cardRef.current?.classList.remove('export-capture');
-      setError('Failed to export image');
+      console.error('Export failed:', err?.message || err, err);
+      // Clean up on failure
+      if (fontStyle) fontStyle.remove();
+      el.querySelectorAll('img').forEach((img, i) => {
+        if (originalSrcs[i]) img.src = originalSrcs[i];
+      });
+      el.classList.remove('export-capture');
+      setError('Failed to export image. Check console for details.');
     }
   };
 
