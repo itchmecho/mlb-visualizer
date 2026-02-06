@@ -159,6 +159,23 @@ body {
   border-width: 0;
 }
 
+/* Export capture mode - disable animations and ensure visibility */
+.export-capture,
+.export-capture * {
+  animation: none !important;
+  transition: none !important;
+  opacity: 1 !important;
+}
+
+.export-capture .stat-bar-animated {
+  animation: none !important;
+}
+
+.export-capture .stagger-children > * {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
 /* Compare mode specific styles */
 .compare-divider {
   position: relative;

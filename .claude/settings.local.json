@@ -13,31 +13,11 @@
       "Bash(git push:*)",
       "Skill(ralph-loop:ralph-loop)",
       "Bash(SKIP_DEPLOY_CHECK=1 git add:*)",
-      "Bash(SKIP_DEPLOY_CHECK=1 git commit:*)"
+      "Bash(SKIP_DEPLOY_CHECK=1 git commit:*)",
+      "Bash(wc:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vite build)"
     ]
   },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash(git commit*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '📦 Remember: Push to main to auto-deploy to GitHub Pages'"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash(git commit*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '✓ Committed! Run: git push → deploys to https://itchmecho.github.io/mlb-visualizer/'"
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v3.1.0 | 2026-02-05
+// v3.2.0 | 2026-02-05
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -190,23 +190,72 @@ function App() {
     if (!cardRef.current) return;
 
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: theme === 'dark' ? '#16161f' : '#ffffff',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
+      const { toPng } = await import('html-to-image');
+      const el = cardRef.current;
+
+      // Pre-convert external images to inline data URIs for reliable capture
+      const images = el.querySelectorAll('img');
+      const originalSrcs = [];
+      await Promise.all(
+        Array.from(images).map(async (img, i) => {
+          originalSrcs[i] = img.src;
+          if (!img.src || img.src.startsWith('data:')) return;
+          try {
+            const resp = await fetch(img.src, { mode: 'cors' });
+            const blob = await resp.blob();
+            img.src = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+          } catch {
+            // CORS blocked - leave original src
+          }
+        })
+      );
+
+      // Disable animations during capture
+      el.classList.add('export-capture');
+
+      const bgColor = theme === 'dark' ? '#16161f' : '#ffffff';
+
+      const options = {
+        backgroundColor: bgColor,
+        pixelRatio: 2,
+        quality: 1,
+        cacheBust: true,
+        filter: (node) => {
+          // Filter out hidden tooltip popups
+          if (node.classList?.contains('opacity-0')) return false;
+          return true;
+        },
+        style: {
+          // Ensure the element has proper dimensions for capture
+          overflow: 'visible',
+        },
+      };
+
+      // Run toPng twice - first pass warms up font loading, second pass renders correctly
+      // This is the recommended approach from html-to-image docs for web fonts
+      await toPng(el, options).catch(() => {});
+      const dataUrl = await toPng(el, options);
+
+      // Restore original image sources
+      images.forEach((img, i) => {
+        if (originalSrcs[i]) img.src = originalSrcs[i];
       });
+      el.classList.remove('export-capture');
 
       const link = document.createElement('a');
       const playerName = player2
         ? `${player1?.lastName || 'Player1'}_vs_${player2?.lastName || 'Player2'}`
         : player1?.fullName?.replace(/\s+/g, '_') || 'player';
       link.download = `${playerName}_${season}_stats.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
     } catch (err) {
       console.error('Export error:', err);
+      cardRef.current?.classList.remove('export-capture');
       setError('Failed to export image');
     }
   };
@@ -515,7 +564,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v3.1.0</span>
+          <span>v3.2.0</span>
         </div>
       </footer>
     </div>
