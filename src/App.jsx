@@ -228,20 +228,14 @@ function App() {
   const handleExport = async () => {
     if (!cardRef.current) return;
 
-    let fontStyle = null;
     const el = cardRef.current;
     const originalSrcs = [];
 
     try {
       const { toPng } = await import('html-to-image');
 
-      // Step 1: Embed Google Fonts as inline @font-face with data URI sources
+      // Step 1: Fetch and embed Google Fonts as data URIs
       const fontCss = await embedFonts();
-      if (fontCss) {
-        fontStyle = document.createElement('style');
-        fontStyle.textContent = fontCss;
-        el.prepend(fontStyle);
-      }
 
       // Step 2: Pre-convert external images to inline data URIs
       const images = el.querySelectorAll('img');
@@ -273,6 +267,8 @@ function App() {
         pixelRatio: 2,
         quality: 1,
         cacheBust: true,
+        // Pass font CSS directly - bypasses the library's broken cross-origin font fetch
+        ...(fontCss ? { fontEmbedCSS: fontCss } : {}),
         filter: (node) => {
           try {
             if (node?.classList?.contains('opacity-0')) return false;
@@ -286,7 +282,6 @@ function App() {
       const dataUrl = await toPng(el, options);
 
       // Restore everything
-      if (fontStyle) { fontStyle.remove(); fontStyle = null; }
       images.forEach((img, i) => {
         if (originalSrcs[i]) img.src = originalSrcs[i];
       });
@@ -301,8 +296,6 @@ function App() {
       link.click();
     } catch (err) {
       console.error('Export failed:', err?.message || err, err);
-      // Clean up on failure
-      if (fontStyle) fontStyle.remove();
       el.querySelectorAll('img').forEach((img, i) => {
         if (originalSrcs[i]) img.src = originalSrcs[i];
       });
