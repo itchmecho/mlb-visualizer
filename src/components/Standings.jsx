@@ -1,8 +1,8 @@
 // Team Standings Component
-// v1.3.0 | 2026-02-05
+// v1.4.0 | 2026-02-05
 
 import React from 'react';
-import { getTeamLogoUrl, getTeamMlbUrl, TEAM_DATA } from '../utils/teamData';
+import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
 
 // World Series winners by year (team ID)
 const WORLD_SERIES_WINNERS = {
@@ -49,7 +49,7 @@ const getTeamColor = (teamName) => {
   return team?.primary || '#666';
 };
 
-const TeamRow = ({ team, rank, isLeader, season }) => {
+const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
   const teamName = team.team?.name || 'Unknown';
   const teamId = team.team?.id;
   const wins = team.wins || 0;
@@ -61,7 +61,6 @@ const TeamRow = ({ team, rank, isLeader, season }) => {
   const last10Record = last10 ? `${last10.wins}-${last10.losses}` : '-';
   const runDiff = team.runDifferential || 0;
   const teamColor = getTeamColor(teamName);
-  const teamUrl = getTeamMlbUrl(teamName);
   const isWorldSeriesWinner = WORLD_SERIES_WINNERS[season] === teamId;
 
   return (
@@ -99,20 +98,12 @@ const TeamRow = ({ team, rank, isLeader, season }) => {
           )}
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              {teamUrl ? (
-                <a
-                  href={teamUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`font-medium hover:underline transition-colors ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
-                >
-                  {teamName}
-                </a>
-              ) : (
-                <span className={`font-medium text-text-primary ${isLeader ? 'text-accent' : ''}`}>
-                  {teamName}
-                </span>
-              )}
+              <button
+                onClick={() => onSelectTeam?.(team)}
+                className={`font-medium hover:underline transition-colors text-left cursor-pointer ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
+              >
+                {teamName}
+              </button>
               {isWorldSeriesWinner && (
                 <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded tracking-wide">
                   🏆 WS CHAMP
@@ -178,7 +169,7 @@ const TeamRow = ({ team, rank, isLeader, season }) => {
   );
 };
 
-const DivisionTable = ({ division, teams, animationDelay, season }) => {
+const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam }) => {
   if (!teams || teams.length === 0) return null;
 
   // Sort by division rank
@@ -221,6 +212,7 @@ const DivisionTable = ({ division, teams, animationDelay, season }) => {
                 rank={index + 1}
                 isLeader={index === 0}
                 season={season}
+                onSelectTeam={onSelectTeam}
               />
             ))}
           </tbody>
@@ -230,7 +222,7 @@ const DivisionTable = ({ division, teams, animationDelay, season }) => {
   );
 };
 
-const Standings = ({ standings, season, loading }) => {
+const Standings = ({ standings, season, loading, onSelectTeam }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 animate-fade-in">
@@ -301,6 +293,7 @@ const Standings = ({ standings, season, loading }) => {
               teams={standingsByDivision[division.id]}
               animationDelay={index * 100}
               season={season}
+              onSelectTeam={onSelectTeam}
             />
           ))}
         </div>
@@ -320,6 +313,7 @@ const Standings = ({ standings, season, loading }) => {
               teams={standingsByDivision[division.id]}
               animationDelay={(index + 3) * 100}
               season={season}
+              onSelectTeam={onSelectTeam}
             />
           ))}
         </div>

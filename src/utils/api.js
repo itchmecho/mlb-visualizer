@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v1.2.0 | 2026-02-04
+// v1.3.0 | 2026-02-05
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -219,4 +219,79 @@ export const fetchStandings = async (season, signal) => {
  */
 export const clearStandingsCache = () => {
   standingsCache.clear();
+};
+
+// Cache for team stats (key: "teamId-season-group", value: stat object)
+const teamStatsCache = new Map();
+
+// Cache for all-team stats (key: "season-group", value: array of team stat objects)
+const allTeamStatsCache = new Map();
+
+/**
+ * Fetch a single team's season stats (hitting or pitching)
+ * @param {number} teamId - Team ID
+ * @param {number} season - Season year
+ * @param {string} group - 'hitting' or 'pitching'
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Object|null>} Team stat object or null
+ */
+export const fetchTeamStats = async (teamId, season, group, signal) => {
+  const cacheKey = `${teamId}-${season}-${group}`;
+
+  if (teamStatsCache.has(cacheKey)) {
+    return teamStatsCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/teams/${teamId}/stats?stats=season&season=${season}&group=${group}&gameType=R`,
+      { signal }
+    );
+    const data = await response.json();
+    const stat = data.stats?.[0]?.splits?.[0]?.stat || null;
+
+    if (stat) {
+      teamStatsCache.set(cacheKey, stat);
+    }
+
+    return stat;
+  } catch (error) {
+    if (error.name === 'AbortError') return null;
+    console.error('Team stats error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch all teams' season stats for percentile calculation
+ * @param {number} season - Season year
+ * @param {string} group - 'hitting' or 'pitching'
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of team stat objects
+ */
+export const fetchAllTeamStats = async (season, group, signal) => {
+  const cacheKey = `${season}-${group}`;
+
+  if (allTeamStatsCache.has(cacheKey)) {
+    return allTeamStatsCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/teams/stats?stats=season&season=${season}&group=${group}&gameType=R&sportIds=1`,
+      { signal }
+    );
+    const data = await response.json();
+    const allStats = data.stats?.[0]?.splits?.map(s => s.stat) || [];
+
+    if (allStats.length > 0) {
+      allTeamStatsCache.set(cacheKey, allStats);
+    }
+
+    return allStats;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('All team stats error:', error);
+    throw error;
+  }
 };

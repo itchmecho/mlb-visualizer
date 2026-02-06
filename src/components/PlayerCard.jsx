@@ -1,9 +1,9 @@
 // PlayerCard component - Main stat card
-// v1.4.0 | 2026-02-05
+// v1.5.0 | 2026-02-05
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
-import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl, getTeamMlbUrl } from '../utils/teamData';
+import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
 import { enhanceHittingStats } from '../utils/api';
 
 // Stat configurations for pitchers
@@ -98,11 +98,13 @@ const PlayerPhoto = ({ playerId, playerName }) => {
   );
 };
 
-const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPitcher }, ref) => {
+const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPitcher, onSelectTeam, standings }, ref) => {
   const teamName = player.currentTeam?.name;
   const teamData = getTeamData(teamName);
   const teamLogoUrl = getTeamLogoUrl(teamData.id);
-  const teamUrl = getTeamMlbUrl(teamName);
+
+  // Find the team's standings record for navigation
+  const teamRecord = standings?.find(r => r.team?.id === player.currentTeam?.id) || null;
 
   const statConfig = isPitcher ? PITCHER_STATS : HITTER_STATS;
   const categories = isPitcher ? PITCHER_CATEGORIES : HITTER_CATEGORIES;
@@ -150,15 +152,13 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
           </h1>
 
           {/* Team Name */}
-          {teamUrl ? (
-            <a
-              href={teamUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-text-muted mt-2 font-medium tracking-wide hover:text-accent transition-colors inline-block"
+          {onSelectTeam && teamRecord ? (
+            <button
+              onClick={() => onSelectTeam(teamRecord)}
+              className="text-sm text-text-muted mt-2 font-medium tracking-wide hover:text-accent hover:underline transition-colors inline-block cursor-pointer"
             >
               {teamName?.toUpperCase() || 'FREE AGENT'}
-            </a>
+            </button>
           ) : (
             <p className="text-sm text-text-muted mt-2 font-medium tracking-wide">
               {teamName?.toUpperCase() || 'FREE AGENT'}

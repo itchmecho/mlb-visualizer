@@ -1,9 +1,9 @@
 // CompareView component - Head-to-head player comparison
-// v1.1.0 | 2026-02-05
+// v1.2.0 | 2026-02-05
 
 import React from 'react';
 import CompareStatBar from './CompareStatBar';
-import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl, getTeamMlbUrl } from '../utils/teamData';
+import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
 
 // Stat configurations
 const PITCHER_STATS = [
@@ -28,9 +28,10 @@ const HITTER_STATS = [
 ];
 
 // Player header component
-const PlayerHeader = ({ player, stats, side }) => {
+const PlayerHeader = ({ player, stats, side, onSelectTeam, standings }) => {
   const teamData = getTeamData(player?.currentTeam?.name);
   const teamLogoUrl = getTeamLogoUrl(teamData.id);
+  const teamRecord = standings?.find(r => r.team?.id === player?.currentTeam?.id) || null;
 
   const [imgError, setImgError] = React.useState(false);
 
@@ -80,15 +81,16 @@ const PlayerHeader = ({ player, stats, side }) => {
 
         {/* Team and position */}
         <p className="text-text-muted text-sm mt-1">
-          {(() => {
-            const url = getTeamMlbUrl(player.currentTeam?.name);
-            const name = player.currentTeam?.name || 'Free Agent';
-            return url ? (
-              <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
-                {name}
-              </a>
-            ) : name;
-          })()} • {player.primaryPosition?.abbreviation}
+          {onSelectTeam && teamRecord ? (
+            <button
+              onClick={() => onSelectTeam(teamRecord)}
+              className="hover:text-accent hover:underline transition-colors cursor-pointer"
+            >
+              {player.currentTeam?.name || 'Free Agent'}
+            </button>
+          ) : (
+            player.currentTeam?.name || 'Free Agent'
+          )} • {player.primaryPosition?.abbreviation}
         </p>
 
         {/* Quick stats */}
@@ -122,7 +124,7 @@ const PlayerHeader = ({ player, stats, side }) => {
   );
 };
 
-const CompareView = ({ player1, player2, stats1, stats2, leagueStats, isPitcher, season }) => {
+const CompareView = ({ player1, player2, stats1, stats2, leagueStats, isPitcher, season, onSelectTeam, standings }) => {
   const statsConfig = isPitcher ? PITCHER_STATS : HITTER_STATS;
 
   return (
@@ -144,8 +146,8 @@ const CompareView = ({ player1, player2, stats1, stats2, leagueStats, isPitcher,
 
       {/* Player headers */}
       <div className="flex border-b border-border-light">
-        <PlayerHeader player={player1} stats={stats1} side="left" />
-        <PlayerHeader player={player2} stats={stats2} side="right" />
+        <PlayerHeader player={player1} stats={stats1} side="left" onSelectTeam={onSelectTeam} standings={standings} />
+        <PlayerHeader player={player2} stats={stats2} side="right" onSelectTeam={onSelectTeam} standings={standings} />
       </div>
 
       {/* VS Divider */}
