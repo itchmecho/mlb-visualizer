@@ -16,7 +16,8 @@
       "Bash(SKIP_DEPLOY_CHECK=1 git commit:*)",
       "Bash(wc:*)",
       "Bash(npm install:*)",
-      "Bash(npx vite build)"
+      "Bash(npx vite build)",
+      "Bash(bash scripts/deploy.sh:*)"
     ]
   },
   "hooks": {}

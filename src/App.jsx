@@ -186,6 +186,40 @@ function App() {
     }
   };
 
+  // Fetch Google Fonts CSS and inline all font files as data URIs
+  const embedFonts = async () => {
+    try {
+      const cssUrl = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap';
+      const resp = await fetch(cssUrl);
+      let cssText = await resp.text();
+
+      // Find all url() references and replace with data URIs
+      const urlRegex = /url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g;
+      const matches = [...cssText.matchAll(urlRegex)];
+
+      await Promise.all(
+        matches.map(async (match) => {
+          try {
+            const fontResp = await fetch(match[1]);
+            const blob = await fontResp.blob();
+            const dataUri = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+            cssText = cssText.replace(match[1], dataUri);
+          } catch {
+            // Skip this font file if fetch fails
+          }
+        })
+      );
+
+      return cssText;
+    } catch {
+      return null;
+    }
+  };
+
   const handleExport = async () => {
     if (!cardRef.current) return;
 
@@ -193,7 +227,16 @@ function App() {
       const { toPng } = await import('html-to-image');
       const el = cardRef.current;
 
-      // Pre-convert external images to inline data URIs for reliable capture
+      // Step 1: Embed Google Fonts as inline @font-face with data URI sources
+      const fontCss = await embedFonts();
+      let fontStyle = null;
+      if (fontCss) {
+        fontStyle = document.createElement('style');
+        fontStyle.textContent = fontCss;
+        el.prepend(fontStyle);
+      }
+
+      // Step 2: Pre-convert external images to inline data URIs
       const images = el.querySelectorAll('img');
       const originalSrcs = [];
       await Promise.all(
@@ -214,7 +257,7 @@ function App() {
         })
       );
 
-      // Disable animations during capture
+      // Step 3: Disable animations during capture
       el.classList.add('export-capture');
 
       const bgColor = theme === 'dark' ? '#16161f' : '#ffffff';
@@ -225,22 +268,17 @@ function App() {
         quality: 1,
         cacheBust: true,
         filter: (node) => {
-          // Filter out hidden tooltip popups
           if (node.classList?.contains('opacity-0')) return false;
           return true;
         },
-        style: {
-          // Ensure the element has proper dimensions for capture
-          overflow: 'visible',
-        },
       };
 
-      // Run toPng twice - first pass warms up font loading, second pass renders correctly
-      // This is the recommended approach from html-to-image docs for web fonts
+      // Double-render: first pass ensures fonts are loaded, second captures
       await toPng(el, options).catch(() => {});
       const dataUrl = await toPng(el, options);
 
-      // Restore original image sources
+      // Restore everything
+      if (fontStyle) fontStyle.remove();
       images.forEach((img, i) => {
         if (originalSrcs[i]) img.src = originalSrcs[i];
       });
