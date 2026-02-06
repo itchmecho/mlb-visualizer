@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v3.3.0 | 2026-02-05
+// v3.4.0 | 2026-02-05
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -7,7 +7,7 @@ import PlayerCard from './components/PlayerCard';
 import CompareView from './components/CompareView';
 import Standings from './components/Standings';
 import TeamCard from './components/TeamCard';
-import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchStandings, fetchTeamStats, fetchAllTeamStats } from './utils/api';
+import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster } from './utils/api';
 import { PERCENTILE_COLORS } from './utils/percentile';
 
 // Generate available seasons from 2001 to last completed season
@@ -94,6 +94,10 @@ function App() {
   const [allTeamHitting, setAllTeamHitting] = useState(null);
   const [allTeamPitching, setAllTeamPitching] = useState(null);
   const [teamLoading, setTeamLoading] = useState(false);
+
+  // Team roster state
+  const [teamRoster, setTeamRoster] = useState(null);
+  const [rosterLoading, setRosterLoading] = useState(false);
 
   // Shared state
   const [loading, setLoading] = useState(false);
@@ -193,26 +197,30 @@ function App() {
     } else if (view === 'teams') {
       await loadStandings(newSeason);
       if (selectedTeam) {
-        // Re-fetch team stats for the new season
+        // Re-fetch team stats and roster for the new season
         const teamId = selectedTeam.team?.id;
         if (teamId) {
           setTeamLoading(true);
+          setRosterLoading(true);
           try {
-            const [hitting, pitching, allHitting, allPitching] = await Promise.all([
+            const [hitting, pitching, allHitting, allPitching, roster] = await Promise.all([
               fetchTeamStats(teamId, newSeason, 'hitting'),
               fetchTeamStats(teamId, newSeason, 'pitching'),
               fetchAllTeamStats(newSeason, 'hitting'),
               fetchAllTeamStats(newSeason, 'pitching'),
+              fetchTeamRoster(teamId, newSeason),
             ]);
             setTeamHittingStats(hitting);
             setTeamPitchingStats(pitching);
             setAllTeamHitting(allHitting);
             setAllTeamPitching(allPitching);
+            setTeamRoster(roster);
           } catch (err) {
             console.error('Error reloading team stats:', err);
             setError('Failed to load team stats');
           } finally {
             setTeamLoading(false);
+            setRosterLoading(false);
           }
         }
       }
@@ -384,8 +392,10 @@ function App() {
 
     setSelectedTeam(team);
     setTeamLoading(true);
+    setRosterLoading(true);
     setTeamHittingStats(null);
     setTeamPitchingStats(null);
+    setTeamRoster(null);
     setError(null);
 
     // Switch to teams view if not already there
@@ -397,22 +407,25 @@ function App() {
     }
 
     try {
-      const [hitting, pitching, allHitting, allPitching] = await Promise.all([
+      const [hitting, pitching, allHitting, allPitching, roster] = await Promise.all([
         fetchTeamStats(teamId, season, 'hitting'),
         fetchTeamStats(teamId, season, 'pitching'),
         fetchAllTeamStats(season, 'hitting'),
         fetchAllTeamStats(season, 'pitching'),
+        fetchTeamRoster(teamId, season),
       ]);
 
       setTeamHittingStats(hitting);
       setTeamPitchingStats(pitching);
       setAllTeamHitting(allHitting);
       setAllTeamPitching(allPitching);
+      setTeamRoster(roster);
     } catch (err) {
       console.error('Error loading team stats:', err);
       setError('Failed to load team stats');
     } finally {
       setTeamLoading(false);
+      setRosterLoading(false);
     }
   };
 
@@ -420,6 +433,7 @@ function App() {
     setSelectedTeam(null);
     setTeamHittingStats(null);
     setTeamPitchingStats(null);
+    setTeamRoster(null);
   };
 
   const handleGoHome = () => {
@@ -436,6 +450,7 @@ function App() {
     setTeamPitchingStats(null);
     setAllTeamHitting(null);
     setAllTeamPitching(null);
+    setTeamRoster(null);
     setError(null);
   };
 
@@ -447,6 +462,20 @@ function App() {
     setPlayer2(null);
     setStats2(null);
     setIsComparing(false);
+  };
+
+  const handleRosterPlayerClick = async (person) => {
+    // Switch to player view and load their stats
+    setView('players');
+    setSelectedTeam(null);
+    setTeamHittingStats(null);
+    setTeamPitchingStats(null);
+    setTeamRoster(null);
+    setPlayer2(null);
+    setStats2(null);
+    setIsComparing(false);
+
+    await fetchPlayerData(person, season, 'player1');
   };
 
   const hasPlayer1 = player1 && stats1 && !loading;
@@ -658,6 +687,9 @@ function App() {
                 allTeamHitting={allTeamHitting}
                 allTeamPitching={allTeamPitching}
                 onBack={handleBackToStandings}
+                roster={teamRoster}
+                rosterLoading={rosterLoading}
+                onPlayerClick={handleRosterPlayerClick}
               />
             </div>
           </div>
@@ -719,7 +751,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v3.3.0</span>
+          <span>v3.4.0</span>
         </div>
       </footer>
     </div>

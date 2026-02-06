@@ -17,7 +17,9 @@
       "Bash(wc:*)",
       "Bash(npm install:*)",
       "Bash(npx vite build)",
-      "Bash(bash scripts/deploy.sh:*)"
+      "Bash(bash scripts/deploy.sh:*)",
+      "WebFetch(domain:statsapi.mlb.com)",
+      "Bash(git commit:*)"
     ]
   },
   "hooks": {}

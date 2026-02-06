@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v1.3.0 | 2026-02-05
+// v1.4.0 | 2026-02-05
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -292,6 +292,43 @@ export const fetchAllTeamStats = async (season, group, signal) => {
   } catch (error) {
     if (error.name === 'AbortError') return [];
     console.error('All team stats error:', error);
+    throw error;
+  }
+};
+
+// Cache for team rosters (key: "teamId-season", value: roster array)
+const teamRosterCache = new Map();
+
+/**
+ * Fetch a team's roster with player stats hydrated
+ * @param {number} teamId - Team ID
+ * @param {number} season - Season year
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of roster entries with player data
+ */
+export const fetchTeamRoster = async (teamId, season, signal) => {
+  const cacheKey = `${teamId}-${season}`;
+
+  if (teamRosterCache.has(cacheKey)) {
+    return teamRosterCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/teams/${teamId}/roster?season=${season}&rosterType=fullSeason&hydrate=person(stats(type=season,season=${season},gameType=R))`,
+      { signal }
+    );
+    const data = await response.json();
+    const roster = data.roster || [];
+
+    if (roster.length > 0) {
+      teamRosterCache.set(cacheKey, roster);
+    }
+
+    return roster;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Team roster error:', error);
     throw error;
   }
 };

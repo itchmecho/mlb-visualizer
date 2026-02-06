@@ -1,8 +1,9 @@
 // TeamCard component - Team detail card with stats
-// v1.0.0 | 2026-02-05
+// v1.1.0 | 2026-02-05
 
 import React from 'react';
 import StatCategory from './StatCategory';
+import TeamRoster from './TeamRoster';
 import { getTeamData, getTeamLogoUrl, getTeamMlbUrl, TEAM_DATA } from '../utils/teamData';
 
 // Team hitting stat categories
@@ -68,7 +69,7 @@ const getTeamNameById = (teamId) => {
   return null;
 };
 
-const TeamCard = ({ team, season, hittingStats, pitchingStats, allTeamHitting, allTeamPitching, onBack }) => {
+const TeamCard = ({ team, season, hittingStats, pitchingStats, allTeamHitting, allTeamPitching, onBack, roster, rosterLoading, onPlayerClick }) => {
   const teamName = team.team?.name || 'Unknown';
   const teamId = team.team?.id;
   const teamData = getTeamData(teamName);
@@ -272,8 +273,30 @@ const TeamCard = ({ team, season, hittingStats, pitchingStats, allTeamHitting, a
               </div>
             )}
 
+            {/* Roster */}
+            {(roster || rosterLoading) && (
+              <div className="mt-8">
+                <div className="flex items-start justify-between mb-6 pb-3 border-b border-border-light">
+                  <h2 className="font-display text-xl text-text-primary tracking-wide">
+                    ROSTER
+                  </h2>
+                  {roster && (
+                    <span className="text-xs px-2 py-1 bg-accent/10 text-accent rounded font-bold">
+                      {roster.length} PLAYERS
+                    </span>
+                  )}
+                </div>
+                <TeamRoster
+                  roster={roster}
+                  loading={rosterLoading}
+                  onPlayerClick={onPlayerClick}
+                  teamColor={teamData.primary}
+                />
+              </div>
+            )}
+
             {/* Loading state if no stats yet */}
-            {!hittingStats && !pitchingStats && (
+            {!hittingStats && !pitchingStats && !roster && !rosterLoading && (
               <div className="flex items-center justify-center py-20">
                 <div className="text-center">
                   <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
