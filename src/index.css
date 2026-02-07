@@ -85,7 +85,7 @@ body {
 }
 
 [data-theme="dark"] .team-logo {
-  filter: drop-shadow(0 1px 40px rgba(255, 255, 255, 0.2))
+  filter: drop-shadow(0 100px 4px rgba(255, 255, 255, 0.2))
           drop-shadow(0 0 8px rgba(255, 255, 255, 0.08));
 }
 
