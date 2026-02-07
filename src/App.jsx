@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v3.4.0 | 2026-02-05
+// v3.5.0 | 2026-02-06
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -7,8 +7,9 @@ import PlayerCard from './components/PlayerCard';
 import CompareView from './components/CompareView';
 import Standings from './components/Standings';
 import TeamCard from './components/TeamCard';
-import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster } from './utils/api';
+import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster } from './utils/api';
 import { PERCENTILE_COLORS } from './utils/percentile';
+import { useHashRouter, buildHash } from './hooks/useHashRouter';
 
 // Generate available seasons from 2001 to last completed season
 const currentYear = new Date().getFullYear();
@@ -72,8 +73,13 @@ function App() {
     return 'dark';
   });
 
-  // View state: 'players' or 'teams'
-  const [view, setView] = useState('players');
+  // Hash router — drives view, season, and IDs from the URL
+  const router = useHashRouter(latestSeason);
+
+  // View state derived from router
+  const [view, setView] = useState(() => {
+    return (router.route === 'teams' || router.route === 'team') ? 'teams' : 'players';
+  });
 
   // Unified player state (player1 = primary, player2 = comparison)
   const [player1, setPlayer1] = useState(null);
@@ -102,7 +108,7 @@ function App() {
   // Shared state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [season, setSeason] = useState(latestSeason);
+  const [season, setSeason] = useState(router.season);
   const [isPitcher, setIsPitcher] = useState(false);
 
   const cardRef = useRef(null);
@@ -124,11 +130,121 @@ function App() {
     }
   }, [stats1, stats2, loading]);
 
+  // Route restoration — handles initial page load and back/forward navigation
+  useEffect(() => {
+    // Skip if this change was triggered by user clicks (they already handled state)
+    if (router.source === 'user') return;
+
+    const restoreRoute = async () => {
+      const routeSeason = router.season;
+      setSeason(routeSeason);
+      setError(null);
+
+      switch (router.route) {
+        case 'home':
+          setView('players');
+          setPlayer1(null); setPlayer2(null);
+          setStats1(null); setStats2(null);
+          setIsComparing(false);
+          setSelectedTeam(null);
+          setTeamHittingStats(null); setTeamPitchingStats(null);
+          setTeamRoster(null);
+          break;
+
+        case 'player': {
+          setView('players');
+          setSelectedTeam(null);
+          setPlayer2(null); setStats2(null);
+          setIsComparing(false);
+          setTeamHittingStats(null); setTeamPitchingStats(null);
+          setTeamRoster(null);
+
+          const { playerId } = router;
+          if (player1?.id === playerId && season === routeSeason) break;
+
+          setLoading(true);
+          try {
+            const playerObj = await fetchPlayerById(playerId);
+            if (playerObj) {
+              await fetchPlayerDataInternal(playerObj, routeSeason, 'player1');
+            } else {
+              setError(`Player #${playerId} not found`);
+              setLoading(false);
+            }
+          } catch {
+            setError('Failed to load player');
+            setLoading(false);
+          }
+          break;
+        }
+
+        case 'compare': {
+          setView('players');
+          setSelectedTeam(null);
+          setIsComparing(true);
+          setTeamHittingStats(null); setTeamPitchingStats(null);
+          setTeamRoster(null);
+
+          const { player1Id, player2Id } = router;
+          setLoading(true);
+          try {
+            if (player1?.id !== player1Id) {
+              const p1 = await fetchPlayerById(player1Id);
+              if (p1) await fetchPlayerDataInternal(p1, routeSeason, 'player1');
+              else { setError(`Player #${player1Id} not found`); setLoading(false); break; }
+            }
+            if (player2?.id !== player2Id) {
+              const p2 = await fetchPlayerById(player2Id);
+              if (p2) await fetchPlayerDataInternal(p2, routeSeason, 'player2');
+              else { setError(`Player #${player2Id} not found`); setLoading(false); break; }
+            }
+          } catch {
+            setError('Failed to load players');
+            setLoading(false);
+          }
+          break;
+        }
+
+        case 'teams':
+          setView('teams');
+          setSelectedTeam(null);
+          setPlayer1(null); setPlayer2(null);
+          setStats1(null); setStats2(null);
+          setIsComparing(false);
+          setTeamHittingStats(null); setTeamPitchingStats(null);
+          setTeamRoster(null);
+          await loadStandingsInternal(routeSeason);
+          break;
+
+        case 'team': {
+          setView('teams');
+          setPlayer1(null); setPlayer2(null);
+          setStats1(null); setStats2(null);
+          setIsComparing(false);
+
+          const { teamId } = router;
+          const data = await loadStandingsInternal(routeSeason);
+          const teamRecord = data?.find(r => r.team?.id === teamId);
+          if (teamRecord) {
+            await loadTeamData(teamRecord, routeSeason);
+          } else {
+            setError(`Team #${teamId} not found`);
+          }
+          break;
+        }
+      }
+    };
+
+    restoreRoute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.route, router.playerId, router.player1Id, router.player2Id, router.teamId, router.season, router.source]);
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  const fetchPlayerData = async (player, seasonYear = season, slot = 'player1') => {
+  // Internal player data fetch — does NOT update URL (used by route restoration)
+  const fetchPlayerDataInternal = async (player, seasonYear = season, slot = 'player1') => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -175,13 +291,27 @@ function App() {
       }
 
       setError(null);
+      return player; // Return player for URL update
     } catch (err) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') return null;
       console.error('Error fetching data:', err);
       setError(err.message || 'Failed to fetch player data');
+      return null;
     } finally {
       if (!abortController.signal.aborted) {
         setLoading(false);
+      }
+    }
+  };
+
+  // Player data fetch that also updates the URL (used by UI interactions)
+  const fetchPlayerData = async (player, seasonYear = season, slot = 'player1') => {
+    const result = await fetchPlayerDataInternal(player, seasonYear, slot);
+    if (result) {
+      if (slot === 'player2') {
+        router.navigate(buildHash(`compare/${player1?.id || result.id}/${player.id}`, seasonYear, latestSeason));
+      } else {
+        router.navigate(buildHash(`player/${player.id}`, seasonYear, latestSeason));
       }
     }
   };
@@ -191,13 +321,15 @@ function App() {
     setLeagueStats(null);
     setStandings(null);
 
+    // Update URL with new season (replace, not push — back shouldn't undo season changes)
+    router.replace(buildHash(router.getCurrentPath(), newSeason, latestSeason));
+
     if (view === 'players') {
-      if (player1) await fetchPlayerData(player1, newSeason, 'player1');
-      if (player2) await fetchPlayerData(player2, newSeason, 'player2');
+      if (player1) await fetchPlayerDataInternal(player1, newSeason, 'player1');
+      if (player2) await fetchPlayerDataInternal(player2, newSeason, 'player2');
     } else if (view === 'teams') {
-      await loadStandings(newSeason);
+      await loadStandingsInternal(newSeason);
       if (selectedTeam) {
-        // Re-fetch team stats and roster for the new season
         const teamId = selectedTeam.team?.id;
         if (teamId) {
           setTeamLoading(true);
@@ -350,7 +482,7 @@ function App() {
     try {
       const results = await searchPlayers(name);
       if (results.length > 0) {
-        await fetchPlayerData(results[0], season, 'player1');
+        await fetchPlayerData(results[0], season, 'player1'); // fetchPlayerData handles URL
       } else {
         setError(`No player found for "${name}"`);
         setLoading(false);
@@ -366,27 +498,33 @@ function App() {
   const handleViewChange = async (newView) => {
     setView(newView);
     setError(null);
-
-    if (newView === 'teams' && !standings) {
-      await loadStandings(season);
+    if (newView === 'teams') {
+      setSelectedTeam(null);
+      router.navigate(buildHash('teams', season, latestSeason));
+      if (!standings) await loadStandingsInternal(season);
+    } else {
+      router.navigate(buildHash('', season, latestSeason));
     }
   };
 
-  const loadStandings = async (seasonYear) => {
+  const loadStandingsInternal = async (seasonYear) => {
     setTeamsLoading(true);
     setError(null);
     try {
       const data = await fetchStandings(seasonYear);
       setStandings(data);
+      return data;
     } catch (err) {
       console.error('Error loading standings:', err);
       setError('Failed to load standings');
+      return null;
     } finally {
       setTeamsLoading(false);
     }
   };
 
-  const handleSelectTeam = async (team) => {
+  // Internal team data loader — does NOT update URL
+  const loadTeamData = async (team, seasonYear = season) => {
     const teamId = team.team?.id;
     if (!teamId) return;
 
@@ -398,21 +536,13 @@ function App() {
     setTeamRoster(null);
     setError(null);
 
-    // Switch to teams view if not already there
-    if (view !== 'teams') {
-      setView('teams');
-      if (!standings) {
-        await loadStandings(season);
-      }
-    }
-
     try {
       const [hitting, pitching, allHitting, allPitching, roster] = await Promise.all([
-        fetchTeamStats(teamId, season, 'hitting'),
-        fetchTeamStats(teamId, season, 'pitching'),
-        fetchAllTeamStats(season, 'hitting'),
-        fetchAllTeamStats(season, 'pitching'),
-        fetchTeamRoster(teamId, season),
+        fetchTeamStats(teamId, seasonYear, 'hitting'),
+        fetchTeamStats(teamId, seasonYear, 'pitching'),
+        fetchAllTeamStats(seasonYear, 'hitting'),
+        fetchAllTeamStats(seasonYear, 'pitching'),
+        fetchTeamRoster(teamId, seasonYear),
       ]);
 
       setTeamHittingStats(hitting);
@@ -429,29 +559,36 @@ function App() {
     }
   };
 
+  const handleSelectTeam = (team) => {
+    const teamId = team.team?.id;
+    if (!teamId) return;
+
+    setView('teams');
+    loadTeamData(team, season);
+    router.navigate(buildHash(`team/${teamId}`, season, latestSeason));
+  };
+
   const handleBackToStandings = () => {
     setSelectedTeam(null);
     setTeamHittingStats(null);
     setTeamPitchingStats(null);
     setTeamRoster(null);
+    router.navigate(buildHash('teams', season, latestSeason));
   };
 
   const handleGoHome = () => {
     setView('players');
-    setPlayer1(null);
-    setPlayer2(null);
-    setStats1(null);
-    setStats2(null);
+    setPlayer1(null); setPlayer2(null);
+    setStats1(null); setStats2(null);
     setIsComparing(false);
-    setStandings(null);
-    setLeagueStats(null);
     setSelectedTeam(null);
-    setTeamHittingStats(null);
-    setTeamPitchingStats(null);
-    setAllTeamHitting(null);
-    setAllTeamPitching(null);
+    setTeamHittingStats(null); setTeamPitchingStats(null);
+    setAllTeamHitting(null); setAllTeamPitching(null);
     setTeamRoster(null);
+    setLeagueStats(null);
+    setStandings(null);
     setError(null);
+    router.navigate(buildHash('', season, latestSeason));
   };
 
   const handleStartCompare = () => {
@@ -462,20 +599,22 @@ function App() {
     setPlayer2(null);
     setStats2(null);
     setIsComparing(false);
+    if (player1) {
+      router.navigate(buildHash(`player/${player1.id}`, season, latestSeason));
+    } else {
+      router.navigate(buildHash('', season, latestSeason));
+    }
   };
 
   const handleRosterPlayerClick = async (person) => {
-    // Switch to player view and load their stats
     setView('players');
     setSelectedTeam(null);
-    setTeamHittingStats(null);
-    setTeamPitchingStats(null);
+    setTeamHittingStats(null); setTeamPitchingStats(null);
     setTeamRoster(null);
-    setPlayer2(null);
-    setStats2(null);
+    setPlayer2(null); setStats2(null);
     setIsComparing(false);
-
-    await fetchPlayerData(person, season, 'player1');
+    router.navigate(buildHash(`player/${person.id}`, season, latestSeason));
+    await fetchPlayerDataInternal(person, season, 'player1');
   };
 
   const hasPlayer1 = player1 && stats1 && !loading;
@@ -751,7 +890,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v3.4.0</span>
+          <span>v3.5.0</span>
         </div>
       </footer>
     </div>

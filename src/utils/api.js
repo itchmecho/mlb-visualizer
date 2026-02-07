@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v1.4.0 | 2026-02-05
+// v1.5.0 | 2026-02-06
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -63,6 +63,27 @@ export const searchPlayers = async (query, signal) => {
     }
     console.error('Search error:', error);
     throw error; // Re-throw so caller can handle
+  }
+};
+
+/**
+ * Fetch a player by ID (for URL-based navigation)
+ * @param {number} playerId - Player ID
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Object|null>} Player object or null
+ */
+export const fetchPlayerById = async (playerId, signal) => {
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/people/${playerId}?hydrate=currentTeam,team`,
+      { signal }
+    );
+    const data = await response.json();
+    return data.people?.[0] || null;
+  } catch (error) {
+    if (error.name === 'AbortError') return null;
+    console.error('Player lookup error:', error);
+    throw error;
   }
 };
 
