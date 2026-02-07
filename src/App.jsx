@@ -672,7 +672,9 @@ function App() {
         {/* Search Section - players view only */}
         {view === 'players' && (
           <div className="mb-8 relative z-30">
-            <div className="max-w-xl">
+            <div className={`max-w-xl transition-all duration-500 ease-out ${
+              hasPlayer1 || loading ? '' : 'mx-auto'
+            }`}>
               <PlayerSearch
                 onSelect={(p) => fetchPlayerData(p, season, 'player1')}
                 loading={loading}
