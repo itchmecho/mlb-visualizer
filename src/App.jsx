@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v3.5.2 | 2026-02-06
+// v3.5.8 | 2026-02-06
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -19,6 +19,31 @@ const AVAILABLE_SEASONS = Array.from(
   { length: latestSeason - 2000 },
   (_, i) => latestSeason - i
 );
+
+// Top players for suggestion cycling (mix of hitters & pitchers)
+const TOP_PLAYERS = [
+  'Shohei Ohtani', 'Aaron Judge', 'Mookie Betts', 'Ronald Acuna Jr.',
+  'Freddie Freeman', 'Corey Seager', 'Juan Soto', 'Trea Turner',
+  'Manny Machado', 'Rafael Devers', 'Bobby Witt Jr.', 'Julio Rodriguez',
+  'Bryce Harper', 'Fernando Tatis Jr.', 'Yordan Alvarez', 'Kyle Tucker',
+  'Marcus Semien', 'Matt Olson', 'Adolis Garcia', 'Gunnar Henderson',
+  'Corbin Carroll', 'Wander Franco', 'Jose Ramirez', 'Vladimir Guerrero Jr.',
+  'Pete Alonso', 'Francisco Lindor', 'Mike Trout', 'Elly De La Cruz',
+  'Spencer Strider', 'Gerrit Cole', 'Zack Wheeler', 'Corbin Burnes',
+  'Shane McClanahan', 'Yoshinobu Yamamoto', 'Logan Webb', 'Ranger Suarez',
+  'Tyler Glasnow', 'Kevin Gausman', 'Pablo Lopez', 'Sonny Gray',
+];
+
+// Pick n random unique players from the pool, excluding current picks
+const pickRandomPlayers = (count, exclude = []) => {
+  const available = TOP_PLAYERS.filter(p => !exclude.includes(p));
+  const picked = [];
+  for (let i = 0; i < count && available.length > 0; i++) {
+    const idx = Math.floor(Math.random() * available.length);
+    picked.push(available.splice(idx, 1)[0]);
+  }
+  return picked;
+};
 
 // Theme toggle component
 const ThemeToggle = ({ theme, onToggle }) => (
@@ -111,6 +136,26 @@ function App() {
   const [error, setError] = useState(null);
   const [season, setSeason] = useState(router.season);
   const [isPitcher, setIsPitcher] = useState(false);
+
+  // Suggestion cycling state
+  const [suggestions, setSuggestions] = useState(() => pickRandomPlayers(3));
+  const suggestionsRef = useRef(suggestions);
+  suggestionsRef.current = suggestions;
+
+  // Cycle one random suggestion slot every 3 seconds
+  useEffect(() => {
+    if (player1 || loading || view !== 'players') return;
+    const interval = setInterval(() => {
+      const slotIdx = Math.floor(Math.random() * 3);
+      const newPick = pickRandomPlayers(1, suggestionsRef.current)[0];
+      setSuggestions(prev => {
+        const next = [...prev];
+        next[slotIdx] = newPick;
+        return next;
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [player1, loading, view]);
 
   const cardRef = useRef(null);
   const cardContainerRef = useRef(null);
@@ -852,13 +897,13 @@ function App() {
             <p className="text-text-muted max-w-md mx-auto mb-8">
               See how they rank against the league with detailed percentile breakdowns
             </p>
-            <div className="flex flex-wrap justify-center gap-2 text-sm">
-              <span className="text-text-muted">Try:</span>
-              {['Shohei Ohtani', 'Aaron Judge', 'Mookie Betts', 'Gerrit Cole'].map(name => (
+            <div className="flex flex-wrap justify-center gap-3 text-sm">
+              <span className="text-text-muted self-center">Try:</span>
+              {suggestions.map((name, i) => (
                 <button
-                  key={name}
+                  key={`${i}-${name}`}
                   onClick={() => handleQuickSelect(name)}
-                  className="px-4 py-2 bg-bg-tertiary hover:bg-bg-elevated border border-border rounded-full text-text-secondary hover:text-text-primary transition-all theme-transition"
+                  className="suggestion-cycle px-4 py-2 bg-bg-tertiary hover:bg-bg-elevated border border-border rounded-full text-text-secondary hover:text-text-primary transition-colors theme-transition min-w-[140px]"
                 >
                   {name}
                 </button>
