@@ -1,8 +1,9 @@
 // CompareView component - Head-to-head player comparison
-// v1.2.0 | 2026-02-05
+// v2.0.0 | 2026-02-06
 
 import React from 'react';
 import CompareStatBar from './CompareStatBar';
+import CompareRadar from './CompareRadar';
 import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
 import { PERCENTILE_COLORS } from '../utils/percentile';
 
@@ -156,6 +157,17 @@ const CompareView = ({ player1, player2, stats1, stats2, leagueStats, isPitcher,
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-accent text-text-inverse font-display text-xl px-4 py-1 rounded-full">
           VS
         </div>
+      </div>
+
+      {/* Radar Overlay */}
+      <div className="flex justify-center py-4 border-b border-border-light">
+        <CompareRadar
+          player1={player1}
+          player2={player2}
+          stats1={stats1}
+          stats2={stats2}
+          isPitcher={isPitcher}
+        />
       </div>
 
       {/* Stats comparison */}

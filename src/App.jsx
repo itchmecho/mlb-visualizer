@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v3.5.8 | 2026-02-06
+// v4.0.0 | 2026-02-06
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -7,7 +7,11 @@ import PlayerCard from './components/PlayerCard';
 import CompareView from './components/CompareView';
 import Standings from './components/Standings';
 import TeamCard from './components/TeamCard';
-import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster } from './utils/api';
+import Leaders from './components/Leaders';
+import Scoreboard from './components/Scoreboard';
+import PlayoffBracket from './components/PlayoffBracket';
+import { PlayerCardSkeleton, StandingsSkeleton, TeamCardSkeleton } from './components/Skeleton';
+import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats } from './utils/api';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
 import { version as APP_VERSION } from '../package.json';
 
@@ -63,29 +67,31 @@ const ThemeToggle = ({ theme, onToggle }) => (
   </button>
 );
 
-// View toggle component (Players / Teams)
+// Navigation items
+const NAV_ITEMS = [
+  { key: 'players', label: 'Players' },
+  { key: 'teams', label: 'Standings' },
+  { key: 'leaders', label: 'Leaders' },
+  { key: 'scoreboard', label: 'Scores' },
+  { key: 'bracket', label: 'Playoffs' },
+];
+
+// View toggle component — multi-item nav
 const ViewToggle = ({ view, onToggle }) => (
   <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
-    <button
-      onClick={() => onToggle('players')}
-      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-        view === 'players'
-          ? 'bg-accent text-text-inverse shadow-sm'
-          : 'text-text-secondary hover:text-text-primary'
-      }`}
-    >
-      Players
-    </button>
-    <button
-      onClick={() => onToggle('teams')}
-      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-        view === 'teams'
-          ? 'bg-accent text-text-inverse shadow-sm'
-          : 'text-text-secondary hover:text-text-primary'
-      }`}
-    >
-      Teams
-    </button>
+    {NAV_ITEMS.map(item => (
+      <button
+        key={item.key}
+        onClick={() => onToggle(item.key)}
+        className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
+          view === item.key
+            ? 'bg-accent text-text-inverse shadow-sm'
+            : 'text-text-secondary hover:text-text-primary'
+        }`}
+      >
+        {item.label}
+      </button>
+    ))}
   </div>
 );
 
@@ -103,7 +109,12 @@ function App() {
 
   // View state derived from router
   const [view, setView] = useState(() => {
-    return (router.route === 'teams' || router.route === 'team') ? 'teams' : 'players';
+    const route = router.route;
+    if (route === 'teams' || route === 'team') return 'teams';
+    if (route === 'leaders') return 'leaders';
+    if (route === 'scoreboard') return 'scoreboard';
+    if (route === 'bracket') return 'bracket';
+    return 'players';
   });
 
   // Unified player state (player1 = primary, player2 = comparison)
@@ -129,6 +140,11 @@ function App() {
   // Team roster state
   const [teamRoster, setTeamRoster] = useState(null);
   const [rosterLoading, setRosterLoading] = useState(false);
+
+  // Player card tab data (career stats, game log, splits)
+  const [careerStats, setCareerStats] = useState(null);
+  const [gameLogData, setGameLogData] = useState(null);
+  const [splitData, setSplitData] = useState(null);
 
   // Shared state
   const [loading, setLoading] = useState(false);
@@ -277,6 +293,30 @@ function App() {
           }
           break;
         }
+
+        case 'leaders':
+          setView('leaders');
+          setPlayer1(null); setPlayer2(null);
+          setStats1(null); setStats2(null);
+          setIsComparing(false);
+          setSelectedTeam(null);
+          break;
+
+        case 'scoreboard':
+          setView('scoreboard');
+          setPlayer1(null); setPlayer2(null);
+          setStats1(null); setStats2(null);
+          setIsComparing(false);
+          setSelectedTeam(null);
+          break;
+
+        case 'bracket':
+          setView('bracket');
+          setPlayer1(null); setPlayer2(null);
+          setStats1(null); setStats2(null);
+          setIsComparing(false);
+          setSelectedTeam(null);
+          break;
       }
     };
 
@@ -302,6 +342,10 @@ function App() {
 
     if (slot === 'player1') {
       setPlayer1(player);
+      // Clear tab data when loading a new primary player
+      setCareerStats(null);
+      setGameLogData(null);
+      setSplitData(null);
     } else if (slot === 'player2') {
       setPlayer2(player);
     }
@@ -330,6 +374,9 @@ function App() {
       if (slot === 'player1') {
         setStats1(stats);
         setLeagueStats(league);
+
+        // Fetch career stats, game log, and splits in background (non-blocking)
+        fetchPlayerTabData(player.id, seasonYear, statGroup, abortController.signal);
       } else if (slot === 'player2') {
         setStats2(stats);
         if (!leagueStats) setLeagueStats(league);
@@ -345,6 +392,37 @@ function App() {
     } finally {
       if (!abortController.signal.aborted) {
         setLoading(false);
+      }
+    }
+  };
+
+  // Background fetch for player card tab data (career, game log, splits)
+  const fetchPlayerTabData = async (playerId, seasonYear, statGroup, signal) => {
+    try {
+      // Fetch career stats and game log in parallel
+      const [career, gameLog] = await Promise.all([
+        fetchCareerStats(playerId, statGroup, signal),
+        fetchGameLog(playerId, seasonYear, statGroup, signal),
+      ]);
+
+      if (!signal.aborted) {
+        setCareerStats(career);
+        setGameLogData(gameLog);
+      }
+
+      // Fetch split stats (last 7, 15, 30 games) in parallel
+      const [split7, split15, split30] = await Promise.all([
+        fetchSplitStats(playerId, seasonYear, statGroup, 7, signal),
+        fetchSplitStats(playerId, seasonYear, statGroup, 15, signal),
+        fetchSplitStats(playerId, seasonYear, statGroup, 30, signal),
+      ]);
+
+      if (!signal.aborted) {
+        setSplitData({ 7: split7, 15: split15, 30: split30 });
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Error fetching tab data:', err);
       }
     }
   };
@@ -365,6 +443,7 @@ function App() {
     setSeason(newSeason);
     setLeagueStats(null);
     setStandings(null);
+    setCareerStats(null); setGameLogData(null); setSplitData(null);
 
     // Update URL with new season (replace, not push — back shouldn't undo season changes)
     router.replace(buildHash(router.getCurrentPath(), newSeason, latestSeason));
@@ -543,12 +622,24 @@ function App() {
   const handleViewChange = async (newView) => {
     setView(newView);
     setError(null);
-    if (newView === 'teams') {
-      setSelectedTeam(null);
-      router.navigate(buildHash('teams', season, latestSeason));
-      if (!standings) await loadStandingsInternal(season);
-    } else {
-      router.navigate(buildHash('', season, latestSeason));
+    switch (newView) {
+      case 'teams':
+        setSelectedTeam(null);
+        router.navigate(buildHash('teams', season, latestSeason));
+        if (!standings) await loadStandingsInternal(season);
+        break;
+      case 'leaders':
+        router.navigate(buildHash('leaders', season, latestSeason));
+        break;
+      case 'scoreboard':
+        router.navigate(buildHash('scoreboard', season, latestSeason));
+        break;
+      case 'bracket':
+        router.navigate(buildHash('bracket', season, latestSeason));
+        break;
+      default:
+        router.navigate(buildHash('', season, latestSeason));
+        break;
     }
   };
 
@@ -632,6 +723,7 @@ function App() {
     setTeamRoster(null);
     setLeagueStats(null);
     setStandings(null);
+    setCareerStats(null); setGameLogData(null); setSplitData(null);
     setError(null);
     router.navigate(buildHash('', season, latestSeason));
   };
@@ -662,11 +754,30 @@ function App() {
     await fetchPlayerDataInternal(person, season, 'player1');
   };
 
+  // Handle clicking a player from Leaders page
+  const handleLeaderPlayerClick = async (person) => {
+    if (!person?.id) return;
+    setView('players');
+    setPlayer2(null); setStats2(null);
+    setIsComparing(false);
+    setSelectedTeam(null);
+
+    // Try to get the full player object (leaders API may not have all fields)
+    const fullPlayer = await fetchPlayerById(person.id);
+    if (fullPlayer) {
+      router.navigate(buildHash(`player/${fullPlayer.id}`, season, latestSeason));
+      await fetchPlayerDataInternal(fullPlayer, season, 'player1');
+    }
+  };
+
   const hasPlayer1 = player1 && stats1 && !loading;
   const hasPlayer2 = player2 && stats2;
   const showSingleCard = view === 'players' && hasPlayer1 && !hasPlayer2;
   const showCompare = view === 'players' && hasPlayer1 && hasPlayer2 && !loading;
   const showTeams = view === 'teams';
+  const showLeaders = view === 'leaders';
+  const showScoreboard = view === 'scoreboard';
+  const showBracket = view === 'bracket';
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary theme-transition">
@@ -760,12 +871,11 @@ function App() {
           </div>
         )}
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-20 animate-fade-in">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-text-muted">Loading player data...</p>
+        {/* Loading State - Player Skeleton */}
+        {loading && view === 'players' && (
+          <div className="animate-fade-in">
+            <div className="overflow-x-auto pb-4">
+              <PlayerCardSkeleton />
             </div>
           </div>
         )}
@@ -809,6 +919,9 @@ function App() {
                 onCompare={handleStartCompare}
                 onSelectTeam={handleSelectTeam}
                 standings={standings}
+                careerStats={careerStats}
+                gameLogData={gameLogData}
+                splitData={splitData}
               />
             </div>
           </div>
@@ -857,11 +970,8 @@ function App() {
         {showTeams && selectedTeam && (
           <div className="animate-fade-in">
             {teamLoading && (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-text-muted">Loading team stats...</p>
-                </div>
+              <div className="overflow-x-auto pb-4">
+                <TeamCardSkeleton />
               </div>
             )}
             <div className="overflow-x-auto pb-4">
@@ -884,6 +994,21 @@ function App() {
         {/* Teams/Standings View */}
         {showTeams && !selectedTeam && (
           <Standings standings={standings} season={season} loading={teamsLoading} onSelectTeam={handleSelectTeam} />
+        )}
+
+        {/* Leaders View */}
+        {showLeaders && (
+          <Leaders season={season} onPlayerClick={handleLeaderPlayerClick} />
+        )}
+
+        {/* Scoreboard View */}
+        {showScoreboard && (
+          <Scoreboard season={season} />
+        )}
+
+        {/* Playoff Bracket View */}
+        {showBracket && (
+          <PlayoffBracket season={season} />
         )}
 
         {/* Empty State */}

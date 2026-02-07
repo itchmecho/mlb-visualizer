@@ -1,5 +1,5 @@
 // Hash-based router for browser history support
-// v1.0.0 | 2026-02-06
+// v2.0.0 | 2026-02-06
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -9,6 +9,9 @@ const ROUTE_PATTERNS = [
   { pattern: /^\/player\/(\d+)$/, route: 'player', extract: (m) => ({ playerId: +m[1] }) },
   { pattern: /^\/team\/(\d+)$/, route: 'team', extract: (m) => ({ teamId: +m[1] }) },
   { pattern: /^\/teams\/?$/, route: 'teams', extract: () => ({}) },
+  { pattern: /^\/leaders\/?$/, route: 'leaders', extract: () => ({}) },
+  { pattern: /^\/scoreboard\/?$/, route: 'scoreboard', extract: () => ({}) },
+  { pattern: /^\/bracket\/?$/, route: 'bracket', extract: () => ({}) },
   { pattern: /^\/?$/, route: 'home', extract: () => ({}) },
 ];
 
@@ -102,6 +105,9 @@ export function useHashRouter(defaultSeason) {
       case 'compare': return `compare/${routeState.player1Id}/${routeState.player2Id}`;
       case 'team': return `team/${routeState.teamId}`;
       case 'teams': return 'teams';
+      case 'leaders': return 'leaders';
+      case 'scoreboard': return 'scoreboard';
+      case 'bracket': return 'bracket';
       default: return '';
     }
   }, [routeState]);

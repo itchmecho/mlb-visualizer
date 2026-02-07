@@ -1,11 +1,19 @@
-// PlayerCard component - Main stat card
-// v1.5.0 | 2026-02-05
+// PlayerCard component - Main stat card with tabbed interface
+// v2.0.0 | 2026-02-06
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
+import CareerStats from './CareerStats';
+import GameLog from './GameLog';
 import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
 import { enhanceHittingStats } from '../utils/api';
 import { PERCENTILE_COLORS } from '../utils/percentile';
+
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'career', label: 'Career' },
+  { key: 'gamelog', label: 'Game Log' },
+];
 
 // Stat configurations for pitchers
 const PITCHER_STATS = {
@@ -19,6 +27,7 @@ const PITCHER_STATS = {
   ],
   dominance: [
     { key: 'strikeoutsPer9Inn', label: 'K/9', higherBetter: true },
+    { key: 'strikeoutWalkRatio', label: 'K/BB', higherBetter: true },
   ],
   starting: [
     { key: 'wins', label: 'W', higherBetter: true },
@@ -26,9 +35,9 @@ const PITCHER_STATS = {
     { key: 'gamesStarted', label: 'GS', higherBetter: true },
   ],
   contact: [
-    { key: 'homeRuns', label: 'HR', higherBetter: false },
-    { key: 'baseOnBalls', label: 'BB', higherBetter: false },
-    { key: 'hits', label: 'H', higherBetter: false },
+    { key: 'homeRunsPer9', label: 'HR/9', higherBetter: false },
+    { key: 'walksPer9Inn', label: 'BB/9', higherBetter: false },
+    { key: 'hitsPer9Inn', label: 'H/9', higherBetter: false },
   ],
 };
 
@@ -39,11 +48,13 @@ const HITTER_STATS = {
     { key: 'obp', label: 'OBP', higherBetter: true },
     { key: 'slg', label: 'SLG', higherBetter: true },
     { key: 'ops', label: 'OPS', higherBetter: true },
+    { key: 'babip', label: 'BABIP', higherBetter: true },
   ],
   power: [
     { key: 'homeRuns', label: 'HR', higherBetter: true },
     { key: 'extraBaseHits', label: 'XBH', higherBetter: true },
     { key: 'totalBases', label: 'TB', higherBetter: true },
+    { key: 'iso', label: 'ISO', higherBetter: true },
   ],
   production: [
     { key: 'rbi', label: 'RBI', higherBetter: true },
@@ -53,6 +64,8 @@ const HITTER_STATS = {
   discipline: [
     { key: 'baseOnBalls', label: 'BB', higherBetter: true },
     { key: 'strikeOuts', label: 'K', higherBetter: false },
+    { key: 'walkRate', label: 'BB%', higherBetter: true },
+    { key: 'strikeoutRate', label: 'K%', higherBetter: false },
   ],
   speed: [
     { key: 'stolenBases', label: 'SB', higherBetter: true },
@@ -99,10 +112,13 @@ const PlayerPhoto = ({ playerId, playerName }) => {
   );
 };
 
-const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPitcher, onSelectTeam, standings }, ref) => {
+const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPitcher, onSelectTeam, standings, careerStats, gameLogData, splitData, onCareerSeasonChange }, ref) => {
+  const [activeTab, setActiveTab] = useState('overview');
+
   const teamName = player.currentTeam?.name;
   const teamData = getTeamData(teamName);
   const teamLogoUrl = getTeamLogoUrl(teamData.id);
+  const teamColor = teamData.primary;
 
   // Find the team's standings record for navigation
   const teamRecord = standings?.find(r => r.team?.id === player.currentTeam?.id) || null;
@@ -229,53 +245,110 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
           </div>
         </div>
 
-        {/* Right Panel - Stats */}
-        <div className="flex-1 p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-6 pb-3 border-b border-border-light">
-            <div>
-              <h2 className="font-display text-xl text-text-primary tracking-wide">
-                {isPitcher ? 'PITCHER' : 'HITTER'} PERCENTILE RANKINGS
-              </h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-text-muted font-medium">SEASON {season}</span>
-              <span className="relative group text-xs px-2 py-1 bg-accent/10 text-accent rounded font-bold cursor-help">
-                {totalPlayers} QP
-                <span className="absolute bottom-full right-0 mb-2 w-48 px-3 py-2 bg-bg-elevated border border-border rounded-lg text-xs text-text-secondary font-normal opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg z-50">
-                  Qualified Players — percentiles are ranked against {totalPlayers} {isPitcher ? 'pitchers' : 'hitters'} with enough {isPitcher ? 'innings' : 'plate appearances'} to qualify
-                </span>
-              </span>
-            </div>
-          </div>
-
-          {/* Stat Categories */}
-          <div className="space-y-1 stagger-children">
-            {categories.map(cat => (
-              <StatCategory
-                key={cat.key}
-                title={cat.title}
-                stats={statConfig[cat.key]}
-                playerStats={enhancedPlayerStats}
-                leagueStats={leagueStats}
-              />
+        {/* Right Panel - Tabbed Content */}
+        <div className="flex-1 flex flex-col">
+          {/* Tab Bar */}
+          <div className="flex border-b border-border-light px-6 pt-4">
+            {TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`relative px-4 py-3 text-sm font-medium tracking-wide transition-colors ${
+                  activeTab === tab.key
+                    ? 'text-text-primary'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                {tab.label}
+                {activeTab === tab.key && (
+                  <span
+                    className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full"
+                    style={{ backgroundColor: teamColor }}
+                  />
+                )}
+              </button>
             ))}
           </div>
 
-          {/* Inline Percentile Legend */}
-          <div className="mt-4 pt-3 border-t border-border-light flex items-center gap-4 flex-wrap">
-            {[
-              { color: PERCENTILE_COLORS.elite, label: 'Elite' },
-              { color: PERCENTILE_COLORS.aboveAvg, label: 'Above Avg' },
-              { color: PERCENTILE_COLORS.average, label: 'Average' },
-              { color: PERCENTILE_COLORS.belowAvg, label: 'Below Avg' },
-              { color: PERCENTILE_COLORS.poor, label: 'Poor' },
-            ].map(({ color, label }) => (
-              <div key={label} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-                <span className="text-[11px] text-text-muted">{label}</span>
+          {/* Tab Content */}
+          <div className="flex-1 p-6">
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <div className="animate-fade-in">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6 pb-3 border-b border-border-light">
+                  <div>
+                    <h2 className="font-display text-xl text-text-primary tracking-wide">
+                      {isPitcher ? 'PITCHER' : 'HITTER'} PERCENTILE RANKINGS
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-text-muted font-medium">SEASON {season}</span>
+                    <span className="relative group text-xs px-2 py-1 bg-accent/10 text-accent rounded font-bold cursor-help">
+                      {totalPlayers} QP
+                      <span className="absolute bottom-full right-0 mb-2 w-48 px-3 py-2 bg-bg-elevated border border-border rounded-lg text-xs text-text-secondary font-normal opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg z-50">
+                        Qualified Players — percentiles are ranked against {totalPlayers} {isPitcher ? 'pitchers' : 'hitters'} with enough {isPitcher ? 'innings' : 'plate appearances'} to qualify
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Stat Categories */}
+                <div className="space-y-1 stagger-children">
+                  {categories.map(cat => (
+                    <StatCategory
+                      key={cat.key}
+                      title={cat.title}
+                      stats={statConfig[cat.key]}
+                      playerStats={enhancedPlayerStats}
+                      leagueStats={leagueStats}
+                    />
+                  ))}
+                </div>
+
+                {/* Inline Percentile Legend */}
+                <div className="mt-4 pt-3 border-t border-border-light flex items-center gap-4 flex-wrap">
+                  {[
+                    { color: PERCENTILE_COLORS.elite, label: 'Elite' },
+                    { color: PERCENTILE_COLORS.aboveAvg, label: 'Above Avg' },
+                    { color: PERCENTILE_COLORS.average, label: 'Average' },
+                    { color: PERCENTILE_COLORS.belowAvg, label: 'Below Avg' },
+                    { color: PERCENTILE_COLORS.poor, label: 'Poor' },
+                  ].map(({ color, label }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="text-[11px] text-text-muted">{label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
+
+            {/* Career Tab */}
+            {activeTab === 'career' && (
+              <div className="animate-fade-in">
+                <CareerStats
+                  player={player}
+                  careerStats={careerStats}
+                  isPitcher={isPitcher}
+                  teamColor={teamColor}
+                />
+              </div>
+            )}
+
+            {/* Game Log Tab */}
+            {activeTab === 'gamelog' && (
+              <div className="animate-fade-in">
+                <GameLog
+                  player={player}
+                  gameLogData={gameLogData}
+                  splitData={splitData}
+                  isPitcher={isPitcher}
+                  season={season}
+                  teamColor={teamColor}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

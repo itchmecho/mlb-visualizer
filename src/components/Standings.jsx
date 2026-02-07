@@ -1,8 +1,9 @@
 // Team Standings Component
-// v1.4.0 | 2026-02-05
+// v1.5.0 | 2026-02-06
 
 import React from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
+import { StandingsSkeleton } from './Skeleton';
 
 // World Series winners by year (team ID)
 const WORLD_SERIES_WINNERS = {
@@ -225,11 +226,14 @@ const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam }
 const Standings = ({ standings, season, loading, onSelectTeam }) => {
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 animate-fade-in">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-          <p className="text-text-muted text-lg">Loading standings...</p>
+      <div className="animate-fade-in">
+        <div className="text-center mb-10">
+          <h2 className="font-display text-5xl md:text-6xl text-text-primary tracking-wide mb-3">
+            STANDINGS
+          </h2>
+          <p className="text-text-muted text-lg">Loading standings data...</p>
         </div>
+        <StandingsSkeleton />
       </div>
     );
   }

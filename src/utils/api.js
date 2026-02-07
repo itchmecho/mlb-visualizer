@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v1.5.0 | 2026-02-06
+// v2.0.0 | 2026-02-06
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -37,6 +37,23 @@ export const enhanceHittingStats = (stat) => {
   const slg = parseFloat(stat.slg) || 0;
   const avg = parseFloat(stat.avg) || 0;
   enhanced.iso = (slg - avg).toFixed(3);
+
+  // BABIP (Batting Average on Balls In Play)
+  const atBats = parseInt(stat.atBats, 10) || 0;
+  const strikeOuts = parseInt(stat.strikeOuts, 10) || 0;
+  const sacFlies = parseInt(stat.sacFlies, 10) || 0;
+  const babipDenom = atBats - strikeOuts - homeRuns + sacFlies;
+  enhanced.babip = babipDenom > 0
+    ? ((hits - homeRuns) / babipDenom).toFixed(3)
+    : '.000';
+
+  // Walk Rate (BB%)
+  const pa = parseInt(stat.plateAppearances, 10) || 0;
+  const bb = parseInt(stat.baseOnBalls, 10) || 0;
+  enhanced.walkRate = pa > 0 ? ((bb / pa) * 100).toFixed(1) : '0.0';
+
+  // Strikeout Rate (K%)
+  enhanced.strikeoutRate = pa > 0 ? ((strikeOuts / pa) * 100).toFixed(1) : '0.0';
 
   return enhanced;
 };
@@ -313,6 +330,299 @@ export const fetchAllTeamStats = async (season, group, signal) => {
   } catch (error) {
     if (error.name === 'AbortError') return [];
     console.error('All team stats error:', error);
+    throw error;
+  }
+};
+
+// Cache for league leaders (key: "season-stat-group", value: leaders array)
+const leadersCache = new Map();
+
+// Cache for schedule (key: "date-teamId", value: schedule data)
+const scheduleCache = new Map();
+
+// Cache for game boxscores (key: "gamePk", value: boxscore data)
+const boxscoreCache = new Map();
+
+// Cache for postseason schedule (key: "season", value: postseason data)
+const postseasonCache = new Map();
+
+/**
+ * Fetch league leaders for a specific stat
+ * @param {string} leaderCategories - Stat category (e.g., 'homeRuns', 'earnedRunAverage')
+ * @param {number} season - Season year
+ * @param {string} statGroup - 'hitting' or 'pitching'
+ * @param {number} limit - Number of leaders to return
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of leader objects
+ */
+export const fetchLeaders = async (leaderCategories, season, statGroup, limit = 5, signal) => {
+  const cacheKey = `${season}-${leaderCategories}-${statGroup}-${limit}`;
+
+  if (leadersCache.has(cacheKey)) {
+    return leadersCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/stats/leaders?leaderCategories=${leaderCategories}&season=${season}&statGroup=${statGroup}&limit=${limit}&sportId=1&hydrate=person,team`,
+      { signal }
+    );
+    const data = await response.json();
+    const leaders = data.leagueLeaders?.[0]?.leaders || [];
+
+    if (leaders.length > 0) {
+      leadersCache.set(cacheKey, leaders);
+    }
+
+    return leaders;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Leaders error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch MLB schedule for a date range
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @param {number} teamId - Optional team ID filter
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of game objects
+ */
+export const fetchSchedule = async (date, teamId = null, signal) => {
+  const cacheKey = `${date}-${teamId || 'all'}`;
+
+  if (scheduleCache.has(cacheKey)) {
+    return scheduleCache.get(cacheKey);
+  }
+
+  try {
+    let url = `${MLB_API_BASE}/schedule?sportId=1&date=${date}&hydrate=team,linescore`;
+    if (teamId) {
+      url = `${MLB_API_BASE}/schedule?sportId=1&teamId=${teamId}&startDate=${date}&endDate=${date}&hydrate=team,linescore`;
+    }
+
+    const response = await fetch(url, { signal });
+    const data = await response.json();
+    const games = data.dates?.flatMap(d => d.games) || [];
+
+    if (games.length > 0) {
+      scheduleCache.set(cacheKey, games);
+    }
+
+    return games;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Schedule error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch team schedule for a date range
+ * @param {number} teamId - Team ID
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of game objects
+ */
+export const fetchTeamSchedule = async (teamId, startDate, endDate, signal) => {
+  const cacheKey = `team-${teamId}-${startDate}-${endDate}`;
+
+  if (scheduleCache.has(cacheKey)) {
+    return scheduleCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/schedule?sportId=1&teamId=${teamId}&startDate=${startDate}&endDate=${endDate}&hydrate=team,linescore`,
+      { signal }
+    );
+    const data = await response.json();
+    const games = data.dates?.flatMap(d => d.games) || [];
+
+    if (games.length > 0) {
+      scheduleCache.set(cacheKey, games);
+    }
+
+    return games;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Team schedule error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch box score for a specific game
+ * @param {number} gamePk - Game primary key
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Object|null>} Box score data
+ */
+export const fetchBoxScore = async (gamePk, signal) => {
+  if (boxscoreCache.has(gamePk)) {
+    return boxscoreCache.get(gamePk);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/game/${gamePk}/boxscore`,
+      { signal }
+    );
+    const data = await response.json();
+
+    if (data) {
+      boxscoreCache.set(gamePk, data);
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') return null;
+    console.error('Boxscore error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch postseason schedule/bracket
+ * @param {number} season - Season year
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Object|null>} Postseason data with series info
+ */
+export const fetchPostseason = async (season, signal) => {
+  if (postseasonCache.has(season)) {
+    return postseasonCache.get(season);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/schedule/postseason?season=${season}&hydrate=team,linescore`,
+      { signal }
+    );
+    const data = await response.json();
+
+    if (data) {
+      postseasonCache.set(season, data);
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') return null;
+    console.error('Postseason error:', error);
+    throw error;
+  }
+};
+
+// Cache for career stats (key: "playerId-group", value: yearByYear splits)
+const careerStatsCache = new Map();
+
+// Cache for game log (key: "playerId-season-group", value: gameLog splits)
+const gameLogCache = new Map();
+
+// Cache for split stats (key: "playerId-season-group-days", value: stat object)
+const splitStatsCache = new Map();
+
+/**
+ * Fetch player's year-by-year career stats
+ * @param {number} playerId - Player ID
+ * @param {string} group - 'hitting' or 'pitching'
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of yearByYear split objects
+ */
+export const fetchCareerStats = async (playerId, group, signal) => {
+  const cacheKey = `${playerId}-${group}`;
+
+  if (careerStatsCache.has(cacheKey)) {
+    return careerStatsCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/people/${playerId}/stats?stats=yearByYear&group=${group}&gameType=R`,
+      { signal }
+    );
+    const data = await response.json();
+    const splits = data.stats?.[0]?.splits || [];
+
+    if (splits.length > 0) {
+      careerStatsCache.set(cacheKey, splits);
+    }
+
+    return splits;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Career stats error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch player's game log for a season
+ * @param {number} playerId - Player ID
+ * @param {number} season - Season year
+ * @param {string} group - 'hitting' or 'pitching'
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of game log split objects
+ */
+export const fetchGameLog = async (playerId, season, group, signal) => {
+  const cacheKey = `${playerId}-${season}-${group}`;
+
+  if (gameLogCache.has(cacheKey)) {
+    return gameLogCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/people/${playerId}/stats?stats=gameLog&season=${season}&group=${group}&gameType=R`,
+      { signal }
+    );
+    const data = await response.json();
+    const splits = data.stats?.[0]?.splits || [];
+
+    if (splits.length > 0) {
+      gameLogCache.set(cacheKey, splits);
+    }
+
+    return splits;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Game log error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch player's split stats (last X games)
+ * @param {number} playerId - Player ID
+ * @param {number} season - Season year
+ * @param {string} group - 'hitting' or 'pitching'
+ * @param {number} days - Number of days (7, 15, 30)
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Object|null>} Stat object for the period
+ */
+export const fetchSplitStats = async (playerId, season, group, days, signal) => {
+  const cacheKey = `${playerId}-${season}-${group}-${days}`;
+
+  if (splitStatsCache.has(cacheKey)) {
+    return splitStatsCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/people/${playerId}/stats?stats=lastXGames&season=${season}&group=${group}&gameType=R&limit=${days}`,
+      { signal }
+    );
+    const data = await response.json();
+    const stat = data.stats?.[0]?.splits?.[0]?.stat || null;
+
+    if (stat) {
+      splitStatsCache.set(cacheKey, stat);
+    }
+
+    return stat;
+  } catch (error) {
+    if (error.name === 'AbortError') return null;
+    console.error('Split stats error:', error);
     throw error;
   }
 };

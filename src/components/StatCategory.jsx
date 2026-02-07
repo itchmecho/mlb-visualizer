@@ -1,5 +1,5 @@
 // StatCategory component - Group of related stats
-// v1.2.0 | 2026-02-04
+// v1.3.0 | 2026-02-06
 
 import React from 'react';
 import StatBar from './StatBar';
@@ -10,8 +10,9 @@ const formatStatValue = (value, statKey) => {
   if (value === undefined || value === null) return '-';
 
   const decimalStats = [
-    'avg', 'obp', 'slg', 'ops', 'era', 'whip', 'iso',
-    'strikeoutsPer9Inn', 'walksPer9Inn', 'homeRunsPer9', 'strikeoutWalkRatio'
+    'avg', 'obp', 'slg', 'ops', 'era', 'whip', 'iso', 'babip',
+    'strikeoutsPer9Inn', 'walksPer9Inn', 'homeRunsPer9', 'hitsPer9Inn',
+    'strikeoutWalkRatio', 'walkRate', 'strikeoutRate'
   ];
 
   if (decimalStats.includes(statKey)) {
@@ -19,12 +20,16 @@ const formatStatValue = (value, statKey) => {
     if (isNaN(num)) return '-';
 
     // Batting average style stats (show .XXX)
-    if (['avg', 'obp', 'slg', 'iso'].includes(statKey)) {
+    if (['avg', 'obp', 'slg', 'iso', 'babip'].includes(statKey)) {
       return num.toFixed(3).replace(/^0/, '');
     }
     // OPS can be over 1.000
     if (statKey === 'ops') {
       return num.toFixed(3);
+    }
+    // Percentage stats (BB%, K%)
+    if (['walkRate', 'strikeoutRate'].includes(statKey)) {
+      return `${num.toFixed(1)}%`;
     }
     return num.toFixed(2);
   }
