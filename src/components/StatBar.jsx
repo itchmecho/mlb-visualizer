@@ -1,5 +1,5 @@
 // StatBar component - Individual stat row with colored bar
-// v1.3.0 | 2026-02-05
+// v1.4.0 | 2026-02-06
 
 import React from 'react';
 import { getPercentileColor } from '../utils/percentile';
@@ -26,26 +26,28 @@ const StatBar = ({ label, value, percentile, statKey }) => {
       </div>
 
       {/* Stat Bar */}
-      <div className="flex-1 h-7 bg-[var(--color-stat-bar-bg)] rounded overflow-hidden relative">
+      <div className="flex-1 h-7 bg-[var(--color-stat-bar-bg)] rounded relative">
         <div
-          className="h-full rounded stat-bar-animated flex items-center"
+          className="h-full rounded stat-bar-animated flex items-center justify-end pr-2"
           style={{
             width: `${barWidth}%`,
             backgroundColor: color,
           }}
         >
-          {/* Value inside bar */}
+          {barWidth >= 15 && (
+            <span className="text-sm font-bold text-white drop-shadow-sm tabular-nums whitespace-nowrap">
+              {value}
+            </span>
+          )}
+        </div>
+        {barWidth < 15 && (
           <span
-            className="absolute text-sm font-bold text-white drop-shadow-sm tabular-nums"
-            style={{
-              left: `${Math.min(barWidth, 90)}%`,
-              transform: 'translateX(-50%)',
-              paddingLeft: barWidth < 15 ? '1rem' : 0,
-            }}
+            className="absolute top-1/2 -translate-y-1/2 text-sm font-bold text-text-primary drop-shadow-sm tabular-nums whitespace-nowrap"
+            style={{ left: `${barWidth + 1}%` }}
           >
             {value}
           </span>
-        </div>
+        )}
       </div>
 
       {/* Percentile Badge */}
