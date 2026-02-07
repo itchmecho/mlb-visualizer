@@ -10,6 +10,7 @@ import TeamCard from './components/TeamCard';
 import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster } from './utils/api';
 import { PERCENTILE_COLORS } from './utils/percentile';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
+import { version as APP_VERSION } from '../package.json';
 
 // Generate available seasons from 2001 to last completed season
 const currentYear = new Date().getFullYear();
@@ -890,7 +891,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v3.5.2</span>
+          <span>v{APP_VERSION}</span>
         </div>
       </footer>
     </div>
