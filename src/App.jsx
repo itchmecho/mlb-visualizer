@@ -670,7 +670,7 @@ function App() {
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Search Section - players view only */}
         {view === 'players' && (
-          <div className="mb-8">
+          <div className="mb-8 relative z-30">
             <div className="max-w-xl">
               <PlayerSearch
                 onSelect={(p) => fetchPlayerData(p, season, 'player1')}
