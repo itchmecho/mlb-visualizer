@@ -92,7 +92,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
             <img
               src={getTeamLogoUrl(teamId)}
               alt={teamName}
-              className="w-9 h-9 object-contain transition-transform duration-300 group-hover:scale-110"
+              className="w-9 h-9 object-contain transition-transform duration-300 group-hover:scale-110 team-logo"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           )}

@@ -117,7 +117,7 @@ const TeamCard = ({ team, season, hittingStats, pitchingStats, allTeamHitting, a
                 <img
                   src={teamLogoUrl}
                   alt={teamName}
-                  className="w-32 h-32 object-contain"
+                  className="w-32 h-32 object-contain team-logo"
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
               )}

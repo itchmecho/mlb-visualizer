@@ -134,7 +134,7 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
               <img
                 src={teamLogoUrl}
                 alt={teamData.abbr}
-                className="w-14 h-14 object-contain opacity-90"
+                className="w-14 h-14 object-contain team-logo"
               />
             )}
           </div>

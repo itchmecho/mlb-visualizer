@@ -53,7 +53,7 @@ const PlayerHeader = ({ player, stats, side, onSelectTeam, standings }) => {
       <div className={`flex flex-col items-center text-center`}>
         {/* Team logo */}
         {teamLogoUrl && (
-          <img src={teamLogoUrl} alt="" className="w-10 h-10 object-contain mb-3 opacity-80" />
+          <img src={teamLogoUrl} alt="" className="w-10 h-10 object-contain mb-3 team-logo" />
         )}
 
         {/* Player photo */}
