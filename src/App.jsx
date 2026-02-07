@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v3.5.0 | 2026-02-06
+// v3.5.2 | 2026-02-06
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -890,7 +890,7 @@ function App() {
       <footer className="border-t border-border mt-auto theme-transition">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
-          <span>v3.5.0</span>
+          <span>v3.5.2</span>
         </div>
       </footer>
     </div>
