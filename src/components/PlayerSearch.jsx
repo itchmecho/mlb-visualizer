@@ -1,5 +1,5 @@
 // PlayerSearch component - Search input with autocomplete
-// v1.3.0 | 2026-02-05
+// v1.4.0 | 2026-02-06
 
 import React, { useState, useEffect, useRef } from 'react';
 import { searchPlayers } from '../utils/api';
@@ -62,6 +62,14 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
     setResults([]);
     setSearchedOnce(false);
     setFocusedIndex(-1);
+  };
+
+  const handleClear = () => {
+    setQuery('');
+    setResults([]);
+    setSearchedOnce(false);
+    setFocusedIndex(-1);
+    inputRef.current?.focus();
   };
 
   const handleKeyDown = (e) => {
@@ -131,7 +139,7 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full px-4 py-3 bg-bg-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all theme-transition"
+            className="w-full px-4 py-3 pr-10 bg-bg-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all theme-transition"
             disabled={loading}
             role="combobox"
             aria-expanded={showDropdown && results.length > 0}
@@ -140,21 +148,28 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
             aria-label="Search for a player"
             autoComplete="off"
           />
-          {/* Search icon */}
-          <svg
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          {query ? (
+            <button
+              onClick={handleClear}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Clear search"
+              tabIndex={-1}
+            >
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          ) : (
+            <svg
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          )}
         </div>
 
         {/* Loading spinner */}
