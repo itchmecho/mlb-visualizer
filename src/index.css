@@ -86,7 +86,7 @@ body {
 
 [data-theme="dark"] .team-logo {
   filter: drop-shadow(0 1px 2.5px rgba(255, 255, 255, 0.2))
-          drop-shadow(0 0 800px rgba(255, 255, 255, 0.08));
+          drop-shadow(0 0 8px rgba(255, 255, 255, 0.08));
 }
 
 /* Custom scrollbar */
