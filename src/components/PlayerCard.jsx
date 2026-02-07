@@ -5,6 +5,7 @@ import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
 import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
 import { enhanceHittingStats } from '../utils/api';
+import { PERCENTILE_COLORS } from '../utils/percentile';
 
 // Stat configurations for pitchers
 const PITCHER_STATS = {
@@ -239,8 +240,11 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-text-muted font-medium">SEASON {season}</span>
-              <span className="text-xs px-2 py-1 bg-accent/10 text-accent rounded font-bold">
+              <span className="relative group text-xs px-2 py-1 bg-accent/10 text-accent rounded font-bold cursor-help">
                 {totalPlayers} QP
+                <span className="absolute bottom-full right-0 mb-2 w-48 px-3 py-2 bg-bg-elevated border border-border rounded-lg text-xs text-text-secondary font-normal opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg z-50">
+                  Qualified Players — percentiles are ranked against {totalPlayers} {isPitcher ? 'pitchers' : 'hitters'} with enough {isPitcher ? 'innings' : 'plate appearances'} to qualify
+                </span>
               </span>
             </div>
           </div>
@@ -255,6 +259,22 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
                 playerStats={enhancedPlayerStats}
                 leagueStats={leagueStats}
               />
+            ))}
+          </div>
+
+          {/* Inline Percentile Legend */}
+          <div className="mt-4 pt-3 border-t border-border-light flex items-center gap-4 flex-wrap">
+            {[
+              { color: PERCENTILE_COLORS.elite, label: 'Elite' },
+              { color: PERCENTILE_COLORS.aboveAvg, label: 'Above Avg' },
+              { color: PERCENTILE_COLORS.average, label: 'Average' },
+              { color: PERCENTILE_COLORS.belowAvg, label: 'Below Avg' },
+              { color: PERCENTILE_COLORS.poor, label: 'Poor' },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                <span className="text-[11px] text-text-muted">{label}</span>
+              </div>
             ))}
           </div>
         </div>

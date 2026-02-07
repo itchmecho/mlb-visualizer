@@ -4,6 +4,7 @@
 import React from 'react';
 import CompareStatBar from './CompareStatBar';
 import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
+import { PERCENTILE_COLORS } from '../utils/percentile';
 
 // Stat configurations
 const PITCHER_STATS = [
@@ -174,10 +175,24 @@ const CompareView = ({ player1, player2, stats1, stats2, leagueStats, isPitcher,
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-3 bg-bg-tertiary border-t border-border-light">
-        <p className="text-xs text-text-muted text-center">
-          Percentiles calculated against {leagueStats?.length || 0} qualified {isPitcher ? 'pitchers' : 'hitters'}
-        </p>
+      <div className="px-6 py-3 bg-bg-tertiary border-t border-border-light flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-4">
+          {[
+            { color: PERCENTILE_COLORS.elite, label: 'Elite' },
+            { color: PERCENTILE_COLORS.aboveAvg, label: 'Above Avg' },
+            { color: PERCENTILE_COLORS.average, label: 'Average' },
+            { color: PERCENTILE_COLORS.belowAvg, label: 'Below Avg' },
+            { color: PERCENTILE_COLORS.poor, label: 'Poor' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-[11px] text-text-muted">{label}</span>
+            </div>
+          ))}
+        </div>
+        <span className="text-[11px] text-text-muted">
+          vs {leagueStats?.length || 0} qualified {isPitcher ? 'pitchers' : 'hitters'}
+        </span>
       </div>
     </div>
   );

@@ -8,7 +8,6 @@ import CompareView from './components/CompareView';
 import Standings from './components/Standings';
 import TeamCard from './components/TeamCard';
 import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster } from './utils/api';
-import { PERCENTILE_COLORS } from './utils/percentile';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
 import { version as APP_VERSION } from '../package.json';
 
@@ -912,26 +911,6 @@ function App() {
           </div>
         )}
 
-        {/* Legend */}
-        {(showSingleCard || showCompare) && (
-          <div className="mt-8 p-5 bg-bg-card rounded-xl border border-border theme-transition animate-fade-in">
-            <h3 className="text-xs font-bold text-text-muted tracking-wide mb-4">PERCENTILE LEGEND</h3>
-            <div className="flex flex-wrap gap-4 text-sm">
-              {[
-                { color: PERCENTILE_COLORS.elite, label: 'Elite (80-100%)' },
-                { color: PERCENTILE_COLORS.aboveAvg, label: 'Above Avg (60-79%)' },
-                { color: PERCENTILE_COLORS.average, label: 'Average (40-59%)' },
-                { color: PERCENTILE_COLORS.belowAvg, label: 'Below Avg (20-39%)' },
-                { color: PERCENTILE_COLORS.poor, label: 'Poor (0-19%)' },
-              ].map(({ color, label }) => (
-                <div key={label} className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: color }} />
-                  <span className="text-text-secondary">{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Footer */}
