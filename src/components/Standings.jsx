@@ -1,7 +1,7 @@
 // Team Standings Component
-// v1.5.0 | 2026-02-06
+// v4.1.0 | 2026-02-09
 
-import React from 'react';
+import React, { useState } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
 import { StandingsSkeleton } from './Skeleton';
 
@@ -34,6 +34,14 @@ const WORLD_SERIES_WINNERS = {
   2025: 141, // Toronto Blue Jays
 };
 
+// Reverse-lookup: find team name from team ID
+const getTeamNameById = (teamId) => {
+  for (const [name, data] of Object.entries(TEAM_DATA)) {
+    if (data.id === teamId) return name;
+  }
+  return null;
+};
+
 // Division display order and names (IDs from MLB Stats API)
 const DIVISIONS = [
   { id: 201, name: 'AL East', league: 'American League' },
@@ -50,7 +58,45 @@ const getTeamColor = (teamName) => {
   return team?.primary || '#666';
 };
 
-const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
+// Column definitions for sortable headers
+const COLUMNS = [
+  { key: 'team', label: 'Team', align: 'left', condensed: true },
+  { key: 'wins', label: 'W', align: 'center', condensed: true },
+  { key: 'losses', label: 'L', align: 'center', condensed: true },
+  { key: 'pct', label: 'PCT', align: 'center', condensed: false },
+  { key: 'gb', label: 'GB', align: 'center', condensed: true },
+  { key: 'diff', label: 'DIFF', align: 'center', condensed: false },
+  { key: 'l10', label: 'L10', align: 'center', condensed: false },
+  { key: 'strk', label: 'STRK', align: 'center', condensed: false },
+];
+
+// Extract sort value from a team record
+const getSortValue = (team, key) => {
+  switch (key) {
+    case 'team': return team.team?.name || '';
+    case 'wins': return team.wins || 0;
+    case 'losses': return team.losses || 0;
+    case 'pct': return parseFloat(team.winningPercentage) || 0;
+    case 'gb': {
+      const gb = team.gamesBack;
+      return gb === '-' ? 0 : parseFloat(gb) || 0;
+    }
+    case 'diff': return team.runDifferential || 0;
+    case 'l10': {
+      const l10 = team.records?.splitRecords?.find(r => r.type === 'lastTen');
+      return l10 ? l10.wins : 0;
+    }
+    case 'strk': {
+      const code = team.streak?.streakCode || '';
+      if (code.startsWith('W')) return parseInt(code.slice(1)) || 0;
+      if (code.startsWith('L')) return -(parseInt(code.slice(1)) || 0);
+      return 0;
+    }
+    default: return 0;
+  }
+};
+
+const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbsRunDiff }) => {
   const teamName = team.team?.name || 'Unknown';
   const teamId = team.team?.id;
   const wins = team.wins || 0;
@@ -64,15 +110,23 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
   const teamColor = getTeamColor(teamName);
   const isWorldSeriesWinner = WORLD_SERIES_WINNERS[season] === teamId;
 
+  // Extract split records for tooltip
+  const homeRecord = team.records?.splitRecords?.find(r => r.type === 'home');
+  const awayRecord = team.records?.splitRecords?.find(r => r.type === 'away');
+  const oneRunRecord = team.records?.splitRecords?.find(r => r.type === 'oneRun');
+
+  // Run diff bar width percentage
+  const barWidth = maxAbsRunDiff > 0 ? (Math.abs(runDiff) / maxAbsRunDiff) * 100 : 0;
+
   return (
     <tr
       className={`
-        group border-b border-border/30 transition-all duration-200
+        group/row border-b border-border/30 transition-all duration-200
         hover:bg-bg-elevated/80
-        ${isLeader ? 'bg-accent/5' : ''}
       `}
       style={{
         animationDelay: `${rank * 50}ms`,
+        backgroundColor: isLeader ? teamColor + '12' : undefined,
       }}
     >
       <td className="py-3 px-4">
@@ -86,18 +140,18 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
             {rank}
           </span>
           <div
-            className="w-1.5 h-10 rounded-full transition-all duration-300 group-hover:h-12"
+            className="w-1.5 h-10 rounded-full transition-all duration-300 group-hover/row:h-12"
             style={{ backgroundColor: teamColor }}
           />
           {teamId && (
             <img
               src={getTeamLogoUrl(teamId)}
               alt={teamName}
-              className="w-9 h-9 object-contain transition-transform duration-300 group-hover:scale-110 team-logo"
+              className="w-9 h-9 object-contain transition-transform duration-300 group-hover/row:scale-110 team-logo"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           )}
-          <div className="flex flex-col">
+          <div className="flex flex-col relative group/name">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onSelectTeam?.(team)}
@@ -107,7 +161,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
               </button>
               {isWorldSeriesWinner && (
                 <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded tracking-wide">
-                  🏆 WS CHAMP
+                  WS CHAMP
                 </span>
               )}
             </div>
@@ -115,6 +169,31 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
               <span className="text-xs text-accent font-medium tracking-wide">
                 DIVISION LEADER
               </span>
+            )}
+            {/* Home/Away/1-Run tooltip */}
+            {!condensed && (homeRecord || awayRecord || oneRunRecord) && (
+              <div className="absolute top-full left-0 mt-1 opacity-0 group-hover/name:opacity-100 transition-opacity duration-200 bg-bg-elevated border border-border rounded-lg shadow-lg z-50 pointer-events-none px-3 py-2 whitespace-nowrap">
+                <div className="flex gap-4 text-xs">
+                  {homeRecord && (
+                    <div>
+                      <span className="text-text-muted">Home </span>
+                      <span className="text-text-primary font-medium">{homeRecord.wins}-{homeRecord.losses}</span>
+                    </div>
+                  )}
+                  {awayRecord && (
+                    <div>
+                      <span className="text-text-muted">Away </span>
+                      <span className="text-text-primary font-medium">{awayRecord.wins}-{awayRecord.losses}</span>
+                    </div>
+                  )}
+                  {oneRunRecord && (
+                    <div>
+                      <span className="text-text-muted">1-Run </span>
+                      <span className="text-text-primary font-medium">{oneRunRecord.wins}-{oneRunRecord.losses}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -125,58 +204,103 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam }) => {
       <td className="py-3 px-3 text-center">
         <span className="font-display text-xl text-text-secondary">{losses}</span>
       </td>
-      <td className="py-3 px-3 text-center">
-        <span className="text-sm font-medium text-text-secondary">{pct}</span>
-      </td>
+      {!condensed && (
+        <td className="py-3 px-3 text-center">
+          <span className="text-sm font-medium text-text-secondary">{pct}</span>
+        </td>
+      )}
       <td className="py-3 px-3 text-center">
         <span className={`text-sm ${gb === '-' ? 'text-accent font-bold' : 'text-text-muted'}`}>
           {gb}
         </span>
       </td>
-      <td className="py-3 px-3 text-center">
-        <span
-          className={`
-            inline-block min-w-[3rem] px-2 py-0.5 rounded text-sm font-medium
-            ${runDiff > 0
-              ? 'bg-green-500/20 text-green-400'
-              : runDiff < 0
-                ? 'bg-red-500/20 text-red-400'
-                : 'bg-bg-tertiary text-text-muted'
-            }
-          `}
-        >
-          {runDiff > 0 ? '+' : ''}{runDiff}
-        </span>
-      </td>
-      <td className="py-3 px-3 text-center">
-        <span className="text-sm text-text-secondary">{last10Record}</span>
-      </td>
-      <td className="py-3 px-3 text-center">
-        <span
-          className={`
-            inline-block min-w-[2.5rem] px-2 py-0.5 rounded text-sm font-bold
-            ${streak.startsWith('W')
-              ? 'bg-green-500/20 text-green-400'
-              : streak.startsWith('L')
-                ? 'bg-red-500/20 text-red-400'
-                : 'text-text-muted'
-            }
-          `}
-        >
-          {streak}
-        </span>
-      </td>
+      {!condensed && (
+        <>
+          <td className="py-3 px-3 text-center">
+            <div className="relative h-6 flex items-center justify-center" style={{ minWidth: '4rem' }}>
+              {/* Centered bar */}
+              <div className="absolute inset-0 flex items-center">
+                <div className="relative w-full h-4">
+                  {/* Center line */}
+                  <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border" />
+                  {/* Bar */}
+                  {runDiff !== 0 && (
+                    <div
+                      className="absolute top-0 bottom-0 rounded-sm transition-all duration-500"
+                      style={{
+                        backgroundColor: runDiff > 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)',
+                        width: `${barWidth / 2}%`,
+                        ...(runDiff > 0
+                          ? { left: '50%' }
+                          : { right: '50%' }
+                        ),
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+              {/* Number overlay */}
+              <span
+                className={`relative z-10 text-xs font-bold ${
+                  runDiff > 0 ? 'text-green-400' : runDiff < 0 ? 'text-red-400' : 'text-text-muted'
+                }`}
+              >
+                {runDiff > 0 ? '+' : ''}{runDiff}
+              </span>
+            </div>
+          </td>
+          <td className="py-3 px-3 text-center">
+            <span className="text-sm text-text-secondary">{last10Record}</span>
+          </td>
+          <td className="py-3 px-3 text-center">
+            <span
+              className={`
+                inline-block min-w-[2.5rem] px-2 py-0.5 rounded text-sm font-bold
+                ${streak.startsWith('W')
+                  ? 'bg-green-500/20 text-green-400'
+                  : streak.startsWith('L')
+                    ? 'bg-red-500/20 text-red-400'
+                    : 'text-text-muted'
+                }
+              `}
+            >
+              {streak}
+            </span>
+          </td>
+        </>
+      )}
     </tr>
   );
 };
 
-const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam }) => {
+const SortableHeader = ({ column, sortConfig, onSort, condensed }) => {
+  if (!column.condensed && condensed) return null;
+
+  const isActive = sortConfig?.key === column.key;
+  const arrow = isActive
+    ? sortConfig.direction === 'desc' ? ' \u25BC' : ' \u25B2'
+    : '';
+
+  return (
+    <th
+      className={`py-3 ${column.key === 'team' ? 'px-4' : 'px-3'} ${column.align === 'left' ? 'text-left' : 'text-center'} font-semibold cursor-pointer hover:text-accent transition-colors select-none`}
+      onClick={() => onSort(column.key)}
+    >
+      {column.label}{arrow}
+    </th>
+  );
+};
+
+const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam, condensed, sortConfig, onSort }) => {
   if (!teams || teams.length === 0) return null;
 
   // Sort by division rank
   const sortedTeams = [...teams].sort((a, b) =>
     parseInt(a.divisionRank || 99) - parseInt(b.divisionRank || 99)
   );
+
+  // Compute max absolute run differential for this division
+  const maxAbsRunDiff = Math.max(...sortedTeams.map(t => Math.abs(t.runDifferential || 0)), 1);
 
   return (
     <div
@@ -195,14 +319,9 @@ const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam }
         <table className="w-full text-sm">
           <thead>
             <tr className="text-text-muted text-xs uppercase tracking-wider border-b border-border bg-bg-tertiary/50">
-              <th className="py-3 px-4 text-left font-semibold">Team</th>
-              <th className="py-3 px-3 text-center font-semibold">W</th>
-              <th className="py-3 px-3 text-center font-semibold">L</th>
-              <th className="py-3 px-3 text-center font-semibold">PCT</th>
-              <th className="py-3 px-3 text-center font-semibold">GB</th>
-              <th className="py-3 px-3 text-center font-semibold">DIFF</th>
-              <th className="py-3 px-3 text-center font-semibold">L10</th>
-              <th className="py-3 px-3 text-center font-semibold">STRK</th>
+              {COLUMNS.map(col => (
+                <SortableHeader key={col.key} column={col} sortConfig={sortConfig} onSort={onSort} condensed={condensed} />
+              ))}
             </tr>
           </thead>
           <tbody className="stagger-children">
@@ -214,6 +333,8 @@ const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam }
                 isLeader={index === 0}
                 season={season}
                 onSelectTeam={onSelectTeam}
+                condensed={condensed}
+                maxAbsRunDiff={maxAbsRunDiff}
               />
             ))}
           </tbody>
@@ -223,7 +344,104 @@ const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam }
   );
 };
 
+// Sorted full-league table (when a column header is clicked)
+const SortedTable = ({ teams, sortConfig, onSort, season, onSelectTeam, condensed }) => {
+  const sorted = [...teams].sort((a, b) => {
+    const aVal = getSortValue(a, sortConfig.key);
+    const bVal = getSortValue(b, sortConfig.key);
+    const dir = sortConfig.direction === 'desc' ? -1 : 1;
+    if (sortConfig.key === 'team') {
+      return dir * aVal.localeCompare(bVal);
+    }
+    return dir * (aVal - bVal);
+  });
+
+  const maxAbsRunDiff = Math.max(...sorted.map(t => Math.abs(t.runDifferential || 0)), 1);
+
+  return (
+    <div className="bg-bg-card rounded-xl border border-border overflow-hidden theme-transition animate-fade-in">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-text-muted text-xs uppercase tracking-wider border-b border-border bg-bg-tertiary/50">
+              {COLUMNS.map(col => (
+                <SortableHeader key={col.key} column={col} sortConfig={sortConfig} onSort={onSort} condensed={condensed} />
+              ))}
+            </tr>
+          </thead>
+          <tbody className="stagger-children">
+            {sorted.map((team, index) => (
+              <TeamRow
+                key={team.team?.id || index}
+                team={team}
+                rank={index + 1}
+                isLeader={false}
+                season={season}
+                onSelectTeam={onSelectTeam}
+                condensed={condensed}
+                maxAbsRunDiff={maxAbsRunDiff}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// Season Summary Banner — World Series champion
+const SeasonBanner = ({ season }) => {
+  const winnerId = WORLD_SERIES_WINNERS[season];
+  if (!winnerId) return null;
+
+  const teamName = getTeamNameById(winnerId);
+  if (!teamName) return null;
+
+  const teamColor = getTeamColor(teamName);
+
+  return (
+    <div
+      className="mb-8 bg-bg-card rounded-xl border border-border overflow-hidden animate-fade-in"
+      style={{ borderLeftWidth: '4px', borderLeftColor: teamColor }}
+    >
+      <div className="px-5 py-4 flex items-center gap-4">
+        <img
+          src={getTeamLogoUrl(winnerId)}
+          alt={teamName}
+          className="w-12 h-12 object-contain team-logo"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+        <div>
+          <h3 className="font-display text-xl tracking-wide text-text-primary">
+            {teamName}
+          </h3>
+          <p className="text-sm text-text-muted">
+            {season} World Series Champions
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Standings = ({ standings, season, loading, onSelectTeam }) => {
+  const [sortConfig, setSortConfig] = useState(null);
+  const [condensed, setCondensed] = useState(false);
+
+  const handleSort = (key) => {
+    // Skip sorting by team name in condensed if column not visible
+    const col = COLUMNS.find(c => c.key === key);
+    if (condensed && col && !col.condensed) return;
+
+    setSortConfig(prev => {
+      if (!prev || prev.key !== key) return { key, direction: 'desc' };
+      if (prev.direction === 'desc') return { key, direction: 'asc' };
+      return null; // third click clears sort
+    });
+  };
+
+  const clearSort = () => setSortConfig(null);
+
   if (loading) {
     return (
       <div className="animate-fade-in">
@@ -253,7 +471,7 @@ const Standings = ({ standings, season, loading, onSelectTeam }) => {
     );
   }
 
-  // Group standings by division (division ID is in team.division.id)
+  // Group standings by division
   const standingsByDivision = {};
   standings.forEach(record => {
     const divisionId = record.team?.division?.id;
@@ -267,11 +485,12 @@ const Standings = ({ standings, season, loading, onSelectTeam }) => {
 
   const alDivisions = DIVISIONS.filter(d => d.league === 'American League');
   const nlDivisions = DIVISIONS.filter(d => d.league === 'National League');
+  const isSorted = sortConfig !== null;
 
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="text-center mb-10">
+      <div className="text-center mb-6">
         <h2 className="font-display text-5xl md:text-6xl text-text-primary tracking-wide mb-3">
           {season} STANDINGS
         </h2>
@@ -280,48 +499,106 @@ const Standings = ({ standings, season, loading, onSelectTeam }) => {
         </p>
       </div>
 
-      {/* Two-column layout for leagues */}
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* American League */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-1 h-8 bg-accent rounded-full" />
-            <h2 className="font-display text-2xl text-text-secondary tracking-wide">
-              AMERICAN LEAGUE
-            </h2>
-          </div>
-          {alDivisions.map((division, index) => (
-            <DivisionTable
-              key={division.id}
-              division={division}
-              teams={standingsByDivision[division.id]}
-              animationDelay={index * 100}
-              season={season}
-              onSelectTeam={onSelectTeam}
-            />
-          ))}
+      {/* Controls row */}
+      <div className="flex justify-center items-center gap-4 mb-8">
+        {/* Condensed mode toggle */}
+        <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
+          <button
+            onClick={() => setCondensed(false)}
+            className={`px-5 py-2 rounded-md text-sm font-medium transition-all ${
+              !condensed
+                ? 'bg-accent text-text-inverse shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Full
+          </button>
+          <button
+            onClick={() => setCondensed(true)}
+            className={`px-5 py-2 rounded-md text-sm font-medium transition-all ${
+              condensed
+                ? 'bg-accent text-text-inverse shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Compact
+          </button>
         </div>
 
-        {/* National League */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-1 h-8 bg-accent rounded-full" />
-            <h2 className="font-display text-2xl text-text-secondary tracking-wide">
-              NATIONAL LEAGUE
-            </h2>
-          </div>
-          {nlDivisions.map((division, index) => (
-            <DivisionTable
-              key={division.id}
-              division={division}
-              teams={standingsByDivision[division.id]}
-              animationDelay={(index + 3) * 100}
-              season={season}
-              onSelectTeam={onSelectTeam}
-            />
-          ))}
-        </div>
+        {/* Back to division view button */}
+        {isSorted && (
+          <button
+            onClick={clearSort}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary hover:border-accent transition-all"
+          >
+            Back to Division View
+          </button>
+        )}
       </div>
+
+      {/* Season Summary Banner */}
+      <SeasonBanner season={season} />
+
+      {/* Sorted view: single flat table */}
+      {isSorted ? (
+        <SortedTable
+          teams={standings}
+          sortConfig={sortConfig}
+          onSort={handleSort}
+          season={season}
+          onSelectTeam={onSelectTeam}
+          condensed={condensed}
+        />
+      ) : (
+        /* Division view: two-column layout */
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* American League */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-1 h-8 bg-accent rounded-full" />
+              <h2 className="font-display text-2xl text-text-secondary tracking-wide">
+                AMERICAN LEAGUE
+              </h2>
+            </div>
+            {alDivisions.map((division, index) => (
+              <DivisionTable
+                key={division.id}
+                division={division}
+                teams={standingsByDivision[division.id]}
+                animationDelay={index * 100}
+                season={season}
+                onSelectTeam={onSelectTeam}
+                condensed={condensed}
+                sortConfig={sortConfig}
+                onSort={handleSort}
+              />
+            ))}
+          </div>
+
+          {/* National League */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-1 h-8 bg-accent rounded-full" />
+              <h2 className="font-display text-2xl text-text-secondary tracking-wide">
+                NATIONAL LEAGUE
+              </h2>
+            </div>
+            {nlDivisions.map((division, index) => (
+              <DivisionTable
+                key={division.id}
+                division={division}
+                teams={standingsByDivision[division.id]}
+                animationDelay={(index + 3) * 100}
+                season={season}
+                onSelectTeam={onSelectTeam}
+                condensed={condensed}
+                sortConfig={sortConfig}
+                onSort={handleSort}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
