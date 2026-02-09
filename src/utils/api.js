@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v2.0.0 | 2026-02-06
+// v2.1.0 | 2026-02-09
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -7,8 +7,38 @@ const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 export const MIN_IP_QUALIFIED = 50;  // Minimum innings pitched for qualified pitchers
 export const MIN_PA_QUALIFIED = 200; // Minimum plate appearances for qualified hitters
 
+// TTL cache — entries expire after a given duration (ms)
+const TTL_LONG = 30 * 60 * 1000;  // 30 min — player stats, league data, career stats
+const TTL_SHORT = 5 * 60 * 1000;  // 5 min — scores, schedules, live data
+
+class TtlCache {
+  constructor(ttl) {
+    this._map = new Map();
+    this._ttl = ttl;
+  }
+  has(key) {
+    if (!this._map.has(key)) return false;
+    const { ts } = this._map.get(key);
+    if (Date.now() - ts > this._ttl) {
+      this._map.delete(key);
+      return false;
+    }
+    return true;
+  }
+  get(key) {
+    if (!this.has(key)) return undefined;
+    return this._map.get(key).value;
+  }
+  set(key, value) {
+    this._map.set(key, { value, ts: Date.now() });
+  }
+  clear() {
+    this._map.clear();
+  }
+}
+
 // Cache for league stats (key: "season-group", value: stats array)
-const leagueStatsCache = new Map();
+const leagueStatsCache = new TtlCache(TTL_LONG);
 
 /**
  * Calculate derived hitting stats (extraBaseHits, totalBases, iso)
@@ -212,7 +242,7 @@ export const isPitcherPosition = (player) => {
 };
 
 // Cache for standings (key: season, value: standings array)
-const standingsCache = new Map();
+const standingsCache = new TtlCache(TTL_LONG);
 
 /**
  * Fetch MLB standings for a season
@@ -260,10 +290,10 @@ export const clearStandingsCache = () => {
 };
 
 // Cache for team stats (key: "teamId-season-group", value: stat object)
-const teamStatsCache = new Map();
+const teamStatsCache = new TtlCache(TTL_LONG);
 
 // Cache for all-team stats (key: "season-group", value: array of team stat objects)
-const allTeamStatsCache = new Map();
+const allTeamStatsCache = new TtlCache(TTL_LONG);
 
 /**
  * Fetch a single team's season stats (hitting or pitching)
@@ -335,16 +365,16 @@ export const fetchAllTeamStats = async (season, group, signal) => {
 };
 
 // Cache for league leaders (key: "season-stat-group", value: leaders array)
-const leadersCache = new Map();
+const leadersCache = new TtlCache(TTL_LONG);
 
 // Cache for schedule (key: "date-teamId", value: schedule data)
-const scheduleCache = new Map();
+const scheduleCache = new TtlCache(TTL_SHORT);
 
 // Cache for game boxscores (key: "gamePk", value: boxscore data)
-const boxscoreCache = new Map();
+const boxscoreCache = new TtlCache(TTL_SHORT);
 
 // Cache for postseason schedule (key: "season", value: postseason data)
-const postseasonCache = new Map();
+const postseasonCache = new TtlCache(TTL_SHORT);
 
 /**
  * Fetch league leaders for a specific stat
@@ -514,13 +544,13 @@ export const fetchPostseason = async (season, signal) => {
 };
 
 // Cache for career stats (key: "playerId-group", value: yearByYear splits)
-const careerStatsCache = new Map();
+const careerStatsCache = new TtlCache(TTL_LONG);
 
 // Cache for game log (key: "playerId-season-group", value: gameLog splits)
-const gameLogCache = new Map();
+const gameLogCache = new TtlCache(TTL_SHORT);
 
 // Cache for split stats (key: "playerId-season-group-days", value: stat object)
-const splitStatsCache = new Map();
+const splitStatsCache = new TtlCache(TTL_SHORT);
 
 /**
  * Fetch player's year-by-year career stats
@@ -628,7 +658,7 @@ export const fetchSplitStats = async (playerId, season, group, days, signal) => 
 };
 
 // Cache for team rosters (key: "teamId-season", value: roster array)
-const teamRosterCache = new Map();
+const teamRosterCache = new TtlCache(TTL_LONG);
 
 /**
  * Fetch a team's roster with player stats hydrated

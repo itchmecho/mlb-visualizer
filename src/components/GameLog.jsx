@@ -115,6 +115,7 @@ const GameLog = ({ player, gameLogData, splitData, isPitcher, season, teamColor 
       }
 
       return {
+        id: `${split.date || game.gameDate || idx}-${opp.id || 'unknown'}`,
         date: displayDate,
         opponentId: opp.id,
         opponentAbbr: findTeamAbbr(opp.id),
@@ -228,7 +229,7 @@ const GameLog = ({ player, gameLogData, splitData, isPitcher, season, teamColor 
           <tbody>
             {games.map((game, idx) => (
               <tr
-                key={idx}
+                key={game.id}
                 className={`border-b border-border-light/50 hover:bg-bg-tertiary/50 transition-colors ${
                   idx % 2 === 1 ? 'bg-bg-tertiary/20' : ''
                 }`}
@@ -251,6 +252,7 @@ const GameLog = ({ player, gameLogData, splitData, isPitcher, season, teamColor 
                               src={getTeamLogoUrl(game.opponentId)}
                               alt={game.opponentAbbr}
                               className="w-4 h-4 object-contain"
+                              onError={(e) => { e.target.style.display = 'none'; }}
                             />
                           )}
                           <span className="text-text-secondary font-medium text-xs">{game.opponentAbbr}</span>

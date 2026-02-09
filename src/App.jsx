@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.0.0 | 2026-02-06
+// v4.0.1 | 2026-02-09
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -15,9 +15,10 @@ import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, f
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
 import { version as APP_VERSION } from '../package.json';
 
-// Generate available seasons from 2001 to last completed season
+// Generate available seasons — after April 1 use current year, otherwise last year
 const currentYear = new Date().getFullYear();
-const latestSeason = 2025; // Update to currentYear after Opening Day 2026
+const currentMonth = new Date().getMonth(); // 0-indexed (0=Jan, 3=Apr)
+const latestSeason = currentMonth >= 3 ? currentYear : currentYear - 1;
 const AVAILABLE_SEASONS = Array.from(
   { length: latestSeason - 2000 },
   (_, i) => latestSeason - i
@@ -336,6 +337,7 @@ function App() {
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    const signal = abortController.signal;
 
     setLoading(true);
     setError(null);
@@ -354,11 +356,15 @@ function App() {
       const positionIsPitcher = isPitcherPosition(player);
       let statGroup = positionIsPitcher ? 'pitching' : 'hitting';
 
-      let stats = await fetchPlayerStats(player.id, seasonYear, statGroup, abortController.signal);
+      let stats = await fetchPlayerStats(player.id, seasonYear, statGroup, signal);
+
+      // Guard: if a newer request took over, bail out
+      if (signal.aborted) return null;
 
       if (!stats) {
         const altGroup = statGroup === 'pitching' ? 'hitting' : 'pitching';
-        stats = await fetchPlayerStats(player.id, seasonYear, altGroup, abortController.signal);
+        stats = await fetchPlayerStats(player.id, seasonYear, altGroup, signal);
+        if (signal.aborted) return null;
         if (stats) statGroup = altGroup;
       }
 
@@ -369,14 +375,15 @@ function App() {
       const showingPitcher = statGroup === 'pitching';
       setIsPitcher(showingPitcher);
 
-      const league = await fetchLeagueStats(seasonYear, statGroup, abortController.signal);
+      const league = await fetchLeagueStats(seasonYear, statGroup, signal);
+      if (signal.aborted) return null;
 
       if (slot === 'player1') {
         setStats1(stats);
         setLeagueStats(league);
 
         // Fetch career stats, game log, and splits in background (non-blocking)
-        fetchPlayerTabData(player.id, seasonYear, statGroup, abortController.signal);
+        fetchPlayerTabData(player.id, seasonYear, statGroup, signal);
       } else if (slot === 'player2') {
         setStats2(stats);
         if (!leagueStats) setLeagueStats(league);
@@ -386,11 +393,12 @@ function App() {
       return player; // Return player for URL update
     } catch (err) {
       if (err.name === 'AbortError') return null;
+      if (signal.aborted) return null;
       console.error('Error fetching data:', err);
       setError(err.message || 'Failed to fetch player data');
       return null;
     } finally {
-      if (!abortController.signal.aborted) {
+      if (!signal.aborted) {
         setLoading(false);
       }
     }

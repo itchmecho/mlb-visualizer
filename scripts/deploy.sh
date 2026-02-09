@@ -18,6 +18,7 @@ npm run build
 
 echo "Staging changes..."
 git add -A
+git reset HEAD -- .claude/ 2>/dev/null || true
 
 echo "Committing..."
 SKIP_DEPLOY_CHECK=1 git commit -m "$MESSAGE"
