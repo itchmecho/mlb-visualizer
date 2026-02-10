@@ -155,7 +155,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onSelectTeam?.(team)}
-                className={`font-medium hover:underline transition-colors text-left cursor-pointer ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
+                className={`font-medium hover:underline transition-colors text-left cursor-pointer whitespace-nowrap ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
               >
                 {teamName}
               </button>
