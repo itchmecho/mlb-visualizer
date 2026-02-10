@@ -1,5 +1,5 @@
 // PlayerCard component - Main stat card with tabbed interface
-// v2.0.0 | 2026-02-06
+// v2.1.0 | 2026-02-09
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
@@ -140,11 +140,10 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
     <div
       ref={ref}
       className="relative bg-bg-card rounded-2xl overflow-hidden shadow-theme-xl theme-transition"
-      style={{ minWidth: '900px' }}
     >
-      <div className="relative flex">
+      <div className="relative flex flex-col md:flex-row">
         {/* Left Panel - Player Info */}
-        <div className="w-80 p-6 flex flex-col bg-bg-elevated border-r border-border-light">
+        <div className="w-full md:w-80 p-6 flex flex-col bg-bg-elevated border-b md:border-b-0 md:border-r border-border-light">
           {/* Team Logo */}
           <div className="mb-4 w-14 h-14">
             {teamLogoUrl && (

@@ -1,5 +1,5 @@
 // TeamCard component - Team detail card with stats
-// v1.1.0 | 2026-02-05
+// v1.2.0 | 2026-02-09
 
 import React from 'react';
 import StatCategory from './StatCategory';
@@ -100,11 +100,10 @@ const TeamCard = ({ team, season, hittingStats, pitchingStats, allTeamHitting, a
 
       <div
         className="relative bg-bg-card rounded-2xl overflow-hidden shadow-theme-xl theme-transition"
-        style={{ minWidth: '900px' }}
       >
-        <div className="relative flex">
+        <div className="relative flex flex-col md:flex-row">
           {/* Left Panel - Team Info */}
-          <div className="w-80 p-6 flex flex-col bg-bg-elevated border-r border-border-light">
+          <div className="w-full md:w-80 p-6 flex flex-col bg-bg-elevated border-b md:border-b-0 md:border-r border-border-light">
             {/* Team color bar */}
             <div
               className="w-full h-2 rounded-full mb-6"

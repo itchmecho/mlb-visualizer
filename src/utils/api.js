@@ -447,7 +447,7 @@ export const fetchAwards = async (season, signal) => {
         if (!winner?.player) return null;
         return {
           id: winner.player.id,
-          name: winner.player.fullName,
+          name: winner.player.nameFirstLast || winner.player.fullName,
           teamId: winner.team?.id || null,
         };
       })

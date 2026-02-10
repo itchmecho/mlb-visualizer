@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.1.7 | 2026-02-09
+// v4.3.0 | 2026-02-09
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -117,6 +117,9 @@ function App() {
     if (route === 'bracket') return 'bracket';
     return 'players';
   });
+
+  // Mobile menu state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Unified player state (player1 = primary, player2 = comparison)
   const [player1, setPlayer1] = useState(null);
@@ -791,7 +794,7 @@ function App() {
     <div className="min-h-screen bg-bg-primary text-text-primary theme-transition">
       {/* Header */}
       <header className="border-b border-border theme-transition sticky top-0 bg-bg-primary/95 backdrop-blur-sm z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Logo - clickable to go home */}
             <button
@@ -811,7 +814,10 @@ function App() {
 
             {/* Controls */}
             <nav className="flex items-center gap-3" aria-label="Main navigation">
-              <ViewToggle view={view} onToggle={handleViewChange} />
+              {/* Desktop nav */}
+              <div className="hidden md:block">
+                <ViewToggle view={view} onToggle={handleViewChange} />
+              </div>
 
               <select
                 value={season}
@@ -825,13 +831,52 @@ function App() {
               </select>
 
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
+
+              {/* Mobile hamburger */}
+              <button
+                onClick={() => setMobileMenuOpen(prev => !prev)}
+                className="md:hidden p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all theme-transition"
+                aria-label="Toggle navigation menu"
+              >
+                <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
             </nav>
           </div>
         </div>
+
+        {/* Mobile nav dropdown */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border bg-bg-primary/95 backdrop-blur-sm animate-fade-in">
+            <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
+              {NAV_ITEMS.map(item => (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    handleViewChange(item.key);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-all text-left ${
+                    view === item.key
+                      ? 'bg-accent text-text-inverse'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         {/* Search Section - players view only */}
         {view === 'players' && (
           <div className="mb-8 relative z-30">
@@ -882,9 +927,7 @@ function App() {
         {/* Loading State - Player Skeleton */}
         {loading && view === 'players' && (
           <div className="animate-fade-in">
-            <div className="overflow-x-auto pb-4">
-              <PlayerCardSkeleton />
-            </div>
+            <PlayerCardSkeleton />
           </div>
         )}
 
@@ -916,22 +959,20 @@ function App() {
                 Export PNG
               </button>
             </div>
-            <div className="overflow-x-auto pb-4">
-              <PlayerCard
-                ref={cardRef}
-                player={player1}
-                playerStats={stats1}
-                leagueStats={leagueStats}
-                season={season}
-                isPitcher={isPitcher}
-                onCompare={handleStartCompare}
-                onSelectTeam={handleSelectTeam}
-                standings={standings}
-                careerStats={careerStats}
-                gameLogData={gameLogData}
-                splitData={splitData}
-              />
-            </div>
+            <PlayerCard
+              ref={cardRef}
+              player={player1}
+              playerStats={stats1}
+              leagueStats={leagueStats}
+              season={season}
+              isPitcher={isPitcher}
+              onCompare={handleStartCompare}
+              onSelectTeam={handleSelectTeam}
+              standings={standings}
+              careerStats={careerStats}
+              gameLogData={gameLogData}
+              splitData={splitData}
+            />
           </div>
         )}
 
@@ -978,24 +1019,20 @@ function App() {
         {showTeams && selectedTeam && (
           <div className="animate-fade-in">
             {teamLoading && (
-              <div className="overflow-x-auto pb-4">
-                <TeamCardSkeleton />
-              </div>
+              <TeamCardSkeleton />
             )}
-            <div className="overflow-x-auto pb-4">
-              <TeamCard
-                team={selectedTeam}
-                season={season}
-                hittingStats={teamHittingStats}
-                pitchingStats={teamPitchingStats}
-                allTeamHitting={allTeamHitting}
-                allTeamPitching={allTeamPitching}
-                onBack={handleBackToStandings}
-                roster={teamRoster}
-                rosterLoading={rosterLoading}
-                onPlayerClick={handleRosterPlayerClick}
-              />
-            </div>
+            <TeamCard
+              team={selectedTeam}
+              season={season}
+              hittingStats={teamHittingStats}
+              pitchingStats={teamPitchingStats}
+              allTeamHitting={allTeamHitting}
+              allTeamPitching={allTeamPitching}
+              onBack={handleBackToStandings}
+              roster={teamRoster}
+              rosterLoading={rosterLoading}
+              onPlayerClick={handleRosterPlayerClick}
+            />
           </div>
         )}
 
@@ -1048,7 +1085,7 @@ function App() {
 
       {/* Footer */}
       <footer className="border-t border-border mt-auto theme-transition">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-text-muted">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between text-xs text-text-muted">
           <span>Data from MLB Stats API • Not affiliated with MLB</span>
           <span>v{APP_VERSION}</span>
         </div>

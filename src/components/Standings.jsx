@@ -1,5 +1,5 @@
 // Team Standings Component
-// v4.2.0 | 2026-02-09
+// v4.2.1 | 2026-02-09
 
 import React, { useState, useEffect } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
@@ -412,24 +412,69 @@ const getHeadshotUrl = (playerId) =>
 // Skeleton shimmer for snapshot loading state
 const SnapshotSkeleton = () => (
   <div className="mb-8 bg-bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
-    <div className="px-5 py-4 flex items-center gap-4 border-b border-border">
+    <div className="px-5 py-4 flex items-center gap-4">
       <div className="w-12 h-12 rounded-lg bg-bg-tertiary skeleton-shimmer" />
-      <div className="space-y-2">
+      <div className="space-y-2 flex-1">
         <div className="h-5 w-48 rounded bg-bg-tertiary skeleton-shimmer" />
         <div className="h-4 w-32 rounded bg-bg-tertiary skeleton-shimmer" />
       </div>
     </div>
-    <div className="px-5 py-4 grid grid-cols-2 gap-4">
+    <div className="px-5 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-bg-tertiary skeleton-shimmer" />
-          <div className="space-y-1.5">
-            <div className="h-3 w-16 rounded bg-bg-tertiary skeleton-shimmer" />
-            <div className="h-4 w-24 rounded bg-bg-tertiary skeleton-shimmer" />
+        <div key={i} className="bg-bg-tertiary/50 rounded-lg p-3 space-y-2">
+          <div className="h-3 w-12 rounded bg-bg-tertiary skeleton-shimmer" />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-bg-tertiary skeleton-shimmer" />
+            <div className="h-4 w-20 rounded bg-bg-tertiary skeleton-shimmer" />
           </div>
         </div>
       ))}
     </div>
+  </div>
+);
+
+// Award chip — compact card with headshot, label, name, team logo
+const AwardChip = ({ label, data, onPlayerClick }) => (
+  <div className="bg-bg-tertiary/40 rounded-lg p-3 flex items-center gap-2.5 group/award transition-colors hover:bg-bg-tertiary/70">
+    <img
+      src={getHeadshotUrl(data.id)}
+      alt={data.name}
+      className="w-9 h-9 rounded-full object-cover bg-bg-tertiary shrink-0 ring-1 ring-border"
+      onError={(e) => { e.target.style.display = 'none'; }}
+    />
+    <div className="min-w-0 flex-1">
+      <p className="text-[10px] uppercase tracking-widest text-text-muted leading-none mb-1 font-semibold">{label}</p>
+      <button
+        onClick={() => onPlayerClick?.({ id: data.id })}
+        className="text-sm font-medium text-text-primary hover:text-accent transition-colors cursor-pointer truncate block max-w-full leading-tight"
+      >
+        {data.name}
+      </button>
+    </div>
+    {data.teamId && (
+      <img
+        src={getTeamLogoUrl(data.teamId)}
+        alt=""
+        className="w-5 h-5 object-contain shrink-0 opacity-60 team-logo"
+        onError={(e) => { e.target.style.display = 'none'; }}
+      />
+    )}
+  </div>
+);
+
+// Leader chip — stat category, player name, value
+const LeaderChip = ({ label, data, onPlayerClick }) => (
+  <div className="flex items-center gap-2 min-w-0 py-1">
+    <span className="text-xs font-display font-bold text-accent tracking-wide w-8 shrink-0">{label}</span>
+    <button
+      onClick={() => onPlayerClick?.({ id: data.person?.id })}
+      className="text-sm text-text-primary hover:text-accent transition-colors cursor-pointer truncate"
+    >
+      {data.person?.fullName || 'Unknown'}
+    </button>
+    <span className="text-sm font-display font-bold text-text-secondary ml-auto shrink-0 tabular-nums">
+      {data.value}
+    </span>
   </div>
 );
 
@@ -468,7 +513,7 @@ const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick }) 
     >
       {/* World Series Champions */}
       {winnerId && winnerName && (
-        <div className="px-5 py-4 flex items-center gap-4 border-b border-border">
+        <div className={`px-5 py-4 flex items-center gap-4 ${awardEntries.length > 0 || leaderEntries.length > 0 ? 'border-b border-border' : ''}`}>
           <img
             src={getTeamLogoUrl(winnerId)}
             alt={winnerName}
@@ -489,34 +534,10 @@ const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick }) 
       {/* Awards Section */}
       {awardEntries.length > 0 && (
         <div className={`px-5 py-4 ${leaderEntries.length > 0 ? 'border-b border-border' : ''}`}>
-          <h4 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">Awards</h4>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+          <h4 className="text-[11px] uppercase tracking-widest text-text-muted font-semibold mb-2.5">Awards</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {awardEntries.map(({ key, label, data }) => (
-              <div key={key} className="flex items-center gap-3 min-w-0">
-                <img
-                  src={getHeadshotUrl(data.id)}
-                  alt={data.name}
-                  className="w-8 h-8 rounded-full object-cover bg-bg-tertiary shrink-0"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-wider text-text-muted leading-none mb-0.5">{label}</p>
-                  <button
-                    onClick={() => onPlayerClick?.({ id: data.id })}
-                    className="text-sm font-medium text-text-primary hover:text-accent transition-colors cursor-pointer truncate block max-w-full"
-                  >
-                    {data.name}
-                  </button>
-                </div>
-                {data.teamId && (
-                  <img
-                    src={getTeamLogoUrl(data.teamId)}
-                    alt=""
-                    className="w-5 h-5 object-contain shrink-0 ml-auto team-logo"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                )}
-              </div>
+              <AwardChip key={key} label={label} data={data} onPlayerClick={onPlayerClick} />
             ))}
           </div>
         </div>
@@ -525,21 +546,10 @@ const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick }) 
       {/* Season Leaders Section */}
       {leaderEntries.length > 0 && (
         <div className="px-5 py-4">
-          <h4 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">Season Leaders</h4>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+          <h4 className="text-[11px] uppercase tracking-widest text-text-muted font-semibold mb-2">Season Leaders</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0.5">
             {leaderEntries.map(({ key, label, data }) => (
-              <div key={key} className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold text-accent w-8 shrink-0">{label}</span>
-                <button
-                  onClick={() => onPlayerClick?.({ id: data.person?.id })}
-                  className="text-sm text-text-primary hover:text-accent transition-colors cursor-pointer truncate"
-                >
-                  {data.person?.fullName || 'Unknown'}
-                </button>
-                <span className="text-sm font-display font-bold text-text-secondary ml-auto shrink-0">
-                  {data.value}
-                </span>
-              </div>
+              <LeaderChip key={key} label={label} data={data} onPlayerClick={onPlayerClick} />
             ))}
           </div>
         </div>
@@ -618,7 +628,7 @@ const Standings = ({ standings, season, loading, onSelectTeam, onPlayerClick }) 
     return (
       <div className="text-center py-20 animate-fade-in">
         <div className="text-8xl mb-8 opacity-50">📊</div>
-        <h2 className="font-display text-5xl text-text-primary mb-4 tracking-wide">
+        <h2 className="font-display text-4xl md:text-5xl text-text-primary mb-4 tracking-wide">
           NO STANDINGS DATA
         </h2>
         <p className="text-text-muted text-lg max-w-md mx-auto">
