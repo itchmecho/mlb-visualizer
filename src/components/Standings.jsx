@@ -1,5 +1,5 @@
 // Team Standings Component
-// v4.1.3 | 2026-02-09
+// v4.1.4 | 2026-02-09
 
 import React, { useState } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
@@ -58,6 +58,24 @@ const getTeamColor = (teamName) => {
   return team?.primary || '#666';
 };
 
+// Relative luminance from hex color (0 = black, 1 = white)
+const getLuminance = (hex) => {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const toLinear = (c) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+};
+
+// Pick the brighter of primary/secondary for row tint (dark colors vanish at low opacity)
+const getTintColor = (teamName) => {
+  const team = TEAM_DATA[teamName];
+  if (!team) return '#666';
+  const pLum = getLuminance(team.primary);
+  const sLum = getLuminance(team.secondary);
+  return sLum > pLum ? team.secondary : team.primary;
+};
+
 
 // Column definitions for sortable headers
 const COLUMNS = [
@@ -109,6 +127,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
   const last10Record = last10 ? `${last10.wins}-${last10.losses}` : '-';
   const runDiff = team.runDifferential || 0;
   const teamColor = getTeamColor(teamName);
+  const tintColor = getTintColor(teamName);
   const isWorldSeriesWinner = WORLD_SERIES_WINNERS[season] === teamId;
 
   // Extract split records for tooltip
@@ -127,7 +146,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
       `}
       style={{
         animationDelay: `${rank * 50}ms`,
-        backgroundColor: isLeader ? teamColor + '12' : undefined,
+        backgroundColor: isLeader ? tintColor + '12' : undefined,
       }}
     >
       <td className="py-2.5 px-3">
