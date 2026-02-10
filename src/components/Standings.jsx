@@ -140,7 +140,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
             {rank}
           </span>
           <div
-            className="w-1.5 self-stretch min-h-10 rounded-full transition-all duration-300"
+            className="w-1.5 h-10 rounded-full"
             style={{ backgroundColor: teamColor }}
           />
           {teamId && (
