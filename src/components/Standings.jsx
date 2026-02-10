@@ -1,5 +1,5 @@
 // Team Standings Component
-// v4.1.2 | 2026-02-09
+// v4.1.3 | 2026-02-09
 
 import React, { useState } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
@@ -311,7 +311,7 @@ const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam, 
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-text-muted text-xs uppercase tracking-wider border-b border-border bg-bg-tertiary/50">
@@ -356,7 +356,7 @@ const SortedTable = ({ teams, sortConfig, onSort, season, onSelectTeam, condense
 
   return (
     <div className="bg-bg-card rounded-xl border border-border overflow-hidden theme-transition animate-fade-in">
-      <div className="overflow-x-auto">
+      <div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-text-muted text-xs uppercase tracking-wider border-b border-border bg-bg-tertiary/50">
