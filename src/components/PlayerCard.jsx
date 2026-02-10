@@ -1,5 +1,5 @@
 // PlayerCard component - Main stat card with tabbed interface
-// v2.1.0 | 2026-02-09
+// v2.2.0 | 2026-02-09
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
@@ -143,62 +143,71 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
     >
       <div className="relative flex flex-col md:flex-row">
         {/* Left Panel - Player Info */}
-        <div className="w-full md:w-80 p-6 flex flex-col bg-bg-elevated border-b md:border-b-0 md:border-r border-border-light">
-          {/* Team Logo */}
-          <div className="mb-4 w-14 h-14">
-            {teamLogoUrl && (
-              <img
-                src={teamLogoUrl}
-                alt={teamData.abbr}
-                className="w-14 h-14 object-contain team-logo"
-              />
-            )}
-          </div>
+        <div className="w-full md:w-80 p-4 md:p-6 flex flex-col bg-bg-elevated border-b md:border-b-0 md:border-r border-border-light">
+          {/* Top section: horizontal on mobile, vertical on desktop */}
+          <div className="flex items-start gap-4 md:block">
+            {/* Photo + Logo group */}
+            <div className="shrink-0">
+              {/* Team Logo */}
+              <div className="mb-2 md:mb-4 w-10 h-10 md:w-14 md:h-14">
+                {teamLogoUrl && (
+                  <img
+                    src={teamLogoUrl}
+                    alt={teamData.abbr}
+                    className="w-10 h-10 md:w-14 md:h-14 object-contain team-logo"
+                  />
+                )}
+              </div>
 
-          {/* Player Photo */}
-          <div className="w-full aspect-[4/5] bg-bg-tertiary rounded-xl mb-4 overflow-hidden">
-            <PlayerPhoto playerId={player.id} playerName={player.fullName} />
-          </div>
+              {/* Player Photo */}
+              <div className="w-28 aspect-[4/5] md:w-full bg-bg-tertiary rounded-xl md:mb-4 overflow-hidden">
+                <PlayerPhoto playerId={player.id} playerName={player.fullName} />
+              </div>
+            </div>
 
-          {/* Player Name */}
-          <h1 className="font-display text-4xl text-text-primary leading-none tracking-wide">
-            {player.firstName?.toUpperCase()}
-            <br />
-            {player.lastName?.toUpperCase()}
-          </h1>
+            {/* Info group - beside photo on mobile, below on desktop */}
+            <div className="flex-1 min-w-0">
+              {/* Player Name */}
+              <h1 className="font-display text-2xl md:text-4xl text-text-primary leading-none tracking-wide">
+                {player.firstName?.toUpperCase()}
+                <br />
+                {player.lastName?.toUpperCase()}
+              </h1>
 
-          {/* Team Name */}
-          {onSelectTeam && teamRecord ? (
-            <button
-              onClick={() => onSelectTeam(teamRecord)}
-              className="text-sm text-text-muted mt-2 font-medium tracking-wide hover:text-accent hover:underline transition-colors inline-block cursor-pointer"
-            >
-              {teamName?.toUpperCase() || 'FREE AGENT'}
-            </button>
-          ) : (
-            <p className="text-sm text-text-muted mt-2 font-medium tracking-wide">
-              {teamName?.toUpperCase() || 'FREE AGENT'}
-            </p>
-          )}
+              {/* Team Name */}
+              {onSelectTeam && teamRecord ? (
+                <button
+                  onClick={() => onSelectTeam(teamRecord)}
+                  className="text-sm text-text-muted mt-2 font-medium tracking-wide hover:text-accent hover:underline transition-colors inline-block cursor-pointer"
+                >
+                  {teamName?.toUpperCase() || 'FREE AGENT'}
+                </button>
+              ) : (
+                <p className="text-sm text-text-muted mt-2 font-medium tracking-wide">
+                  {teamName?.toUpperCase() || 'FREE AGENT'}
+                </p>
+              )}
 
-          {/* Season Badge */}
-          <div className="flex items-center gap-2 mt-4">
-            <span className="text-xs text-text-muted font-medium">SEASON</span>
-            <div className="flex items-center gap-1.5 bg-bg-tertiary px-3 py-1 rounded-full">
-              <span className="w-2 h-2 bg-accent rounded-full" />
-              <span className="text-text-primary font-bold text-sm">{season}</span>
+              {/* Season Badge */}
+              <div className="flex items-center gap-2 mt-3 md:mt-4">
+                <span className="text-xs text-text-muted font-medium">SEASON</span>
+                <div className="flex items-center gap-1.5 bg-bg-tertiary px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 bg-accent rounded-full" />
+                  <span className="text-text-primary font-bold text-sm">{season}</span>
+                </div>
+              </div>
+
+              {/* Position */}
+              <div className="mt-3 md:mt-4">
+                <span className="text-xs text-text-muted font-medium">POS </span>
+                <span className="text-accent font-bold text-sm">
+                  {isPitcher ? 'STARTING PITCHER' : player.primaryPosition?.name?.toUpperCase() || player.primaryPosition?.abbreviation}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Position */}
-          <div className="mt-4">
-            <span className="text-xs text-text-muted font-medium">POS </span>
-            <span className="text-accent font-bold text-sm">
-              {isPitcher ? 'STARTING PITCHER' : player.primaryPosition?.name?.toUpperCase() || player.primaryPosition?.abbreviation}
-            </span>
-          </div>
-
-          {/* Physical Stats */}
+          {/* Physical Stats - full width below */}
           <div className="mt-4 flex flex-wrap gap-2">
             {[
               { label: 'BATS', value: player.batSide?.code },

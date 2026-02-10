@@ -1,5 +1,5 @@
 // Team Standings Component
-// v4.2.1 | 2026-02-09
+// v4.3.0 | 2026-02-09
 
 import React, { useState, useEffect } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
@@ -150,8 +150,8 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
         backgroundColor: isLeader ? teamColor + getTintAlpha(teamName) : undefined,
       }}
     >
-      <td className="py-2.5 px-3">
-        <div className="flex items-center gap-2">
+      <td className="py-2.5 px-2 md:px-3">
+        <div className="flex items-center gap-1.5 md:gap-2">
           <span
             className={`
               font-display text-lg w-5 text-center shrink-0
@@ -161,34 +161,35 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
             {rank}
           </span>
           <div
-            className="w-1 h-8 rounded-full shrink-0"
+            className="w-1 h-8 rounded-full shrink-0 hidden md:block"
             style={{ backgroundColor: teamColor }}
           />
           {teamId && (
             <img
               src={getTeamLogoUrl(teamId)}
               alt={teamName}
-              className="w-7 h-7 object-contain shrink-0 transition-transform duration-300 group-hover/row:scale-110 team-logo"
+              className="w-6 h-6 md:w-7 md:h-7 object-contain shrink-0 transition-transform duration-300 group-hover/row:scale-110 team-logo"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           )}
-          <div className="flex flex-col relative group/name">
+          <div className="flex flex-col relative group/name min-w-0">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onSelectTeam?.(team)}
-                className={`font-medium hover:underline transition-colors text-left cursor-pointer ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
+                className={`font-medium hover:underline transition-colors text-left cursor-pointer truncate ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
               >
-                {teamName}
+                <span className="hidden md:inline">{teamName}</span>
+                <span className="md:hidden">{TEAM_DATA[teamName]?.abbr || teamName}</span>
               </button>
               {isWorldSeriesWinner && (
-                <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded tracking-wide">
+                <span className="hidden md:inline-block px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded tracking-wide">
                   WS CHAMP
                 </span>
               )}
             </div>
             {/* Home/Away/1-Run tooltip */}
             {!condensed && (homeRecord || awayRecord || oneRunRecord) && (
-              <div className="absolute top-full left-0 mt-1 opacity-0 group-hover/name:opacity-100 transition-opacity duration-200 bg-bg-elevated border border-border rounded-lg shadow-lg z-50 pointer-events-none px-3 py-2 whitespace-nowrap">
+              <div className="absolute top-full left-0 mt-1 opacity-0 group-hover/name:opacity-100 transition-opacity duration-200 bg-bg-elevated border border-border rounded-lg shadow-lg z-50 pointer-events-none px-3 py-2 whitespace-nowrap hidden md:block">
                 <div className="flex gap-4 text-xs">
                   {homeRecord && (
                     <div>
@@ -214,92 +215,89 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
           </div>
         </div>
       </td>
-      <td className="py-2.5 px-2 text-center">
+      <td className="py-2.5 px-1.5 md:px-2 text-center">
         <span className="font-display text-lg text-text-primary">{wins}</span>
       </td>
-      <td className="py-2.5 px-2 text-center">
+      <td className="py-2.5 px-1.5 md:px-2 text-center">
         <span className="font-display text-lg text-text-secondary">{losses}</span>
       </td>
-      {!condensed && (
-        <td className="py-2.5 px-2 text-center">
-          <span className="text-sm font-medium text-text-secondary">{pct}</span>
-        </td>
-      )}
-      <td className="py-2.5 px-2 text-center">
+      <td className={`py-2.5 px-2 text-center ${condensed ? 'hidden' : 'hidden md:table-cell'}`}>
+        <span className="text-sm font-medium text-text-secondary">{pct}</span>
+      </td>
+      <td className="py-2.5 px-1.5 md:px-2 text-center">
         <span className={`text-sm ${gb === '-' ? 'text-accent font-bold' : 'text-text-muted'}`}>
           {gb}
         </span>
       </td>
-      {!condensed && (
-        <>
-          <td className="py-2.5 px-1.5 text-center">
-            <div className="relative h-5 flex items-center justify-center" style={{ minWidth: '3rem' }}>
-              {/* Centered bar */}
-              <div className="absolute inset-0 flex items-center">
-                <div className="relative w-full h-3.5">
-                  {/* Center line */}
-                  <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border" />
-                  {/* Bar */}
-                  {runDiff !== 0 && (
-                    <div
-                      className="absolute top-0 bottom-0 rounded-sm transition-all duration-500"
-                      style={{
-                        backgroundColor: runDiff > 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)',
-                        width: `${barWidth / 2}%`,
-                        ...(runDiff > 0
-                          ? { left: '50%' }
-                          : { right: '50%' }
-                        ),
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-              {/* Number overlay */}
-              <span
-                className={`relative z-10 text-xs font-bold ${
-                  runDiff > 0 ? 'text-green-400' : runDiff < 0 ? 'text-red-400' : 'text-text-muted'
-                }`}
-              >
-                {runDiff > 0 ? '+' : ''}{runDiff}
-              </span>
+      <td className={`py-2.5 px-1.5 text-center ${condensed ? 'hidden' : 'hidden md:table-cell'}`}>
+        <div className="relative h-5 flex items-center justify-center" style={{ minWidth: '3rem' }}>
+          {/* Centered bar */}
+          <div className="absolute inset-0 flex items-center">
+            <div className="relative w-full h-3.5">
+              {/* Center line */}
+              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border" />
+              {/* Bar */}
+              {runDiff !== 0 && (
+                <div
+                  className="absolute top-0 bottom-0 rounded-sm transition-all duration-500"
+                  style={{
+                    backgroundColor: runDiff > 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)',
+                    width: `${barWidth / 2}%`,
+                    ...(runDiff > 0
+                      ? { left: '50%' }
+                      : { right: '50%' }
+                    ),
+                  }}
+                />
+              )}
             </div>
-          </td>
-          <td className="py-2.5 px-2 text-center">
-            <span className="text-sm text-text-secondary">{last10Record}</span>
-          </td>
-          <td className="py-2.5 px-1.5 text-center">
-            <span
-              className={`
-                inline-block min-w-[2rem] px-1.5 py-0.5 rounded text-sm font-bold
-                ${streak.startsWith('W')
-                  ? 'bg-green-500/20 text-green-400'
-                  : streak.startsWith('L')
-                    ? 'bg-red-500/20 text-red-400'
-                    : 'text-text-muted'
-                }
-              `}
-            >
-              {streak}
-            </span>
-          </td>
-        </>
-      )}
+          </div>
+          {/* Number overlay */}
+          <span
+            className={`relative z-10 text-xs font-bold ${
+              runDiff > 0 ? 'text-green-400' : runDiff < 0 ? 'text-red-400' : 'text-text-muted'
+            }`}
+          >
+            {runDiff > 0 ? '+' : ''}{runDiff}
+          </span>
+        </div>
+      </td>
+      <td className={`py-2.5 px-2 text-center ${condensed ? 'hidden' : 'hidden md:table-cell'}`}>
+        <span className="text-sm text-text-secondary">{last10Record}</span>
+      </td>
+      <td className={`py-2.5 px-1.5 text-center ${condensed ? 'hidden' : 'hidden md:table-cell'}`}>
+        <span
+          className={`
+            inline-block min-w-[2rem] px-1.5 py-0.5 rounded text-sm font-bold
+            ${streak.startsWith('W')
+              ? 'bg-green-500/20 text-green-400'
+              : streak.startsWith('L')
+                ? 'bg-red-500/20 text-red-400'
+                : 'text-text-muted'
+            }
+          `}
+        >
+          {streak}
+        </span>
+      </td>
     </tr>
   );
 };
 
 const SortableHeader = ({ column, sortConfig, onSort, condensed }) => {
-  if (!column.condensed && condensed) return null;
-
   const isActive = sortConfig?.key === column.key;
   const arrow = isActive
     ? sortConfig.direction === 'desc' ? ' \u25BC' : ' \u25B2'
     : '';
 
+  // Non-condensed columns: hidden when condensed toggle is on, AND always hidden on mobile
+  const hiddenClass = !column.condensed
+    ? (condensed ? 'hidden' : 'hidden md:table-cell')
+    : '';
+
   return (
     <th
-      className={`py-2.5 ${column.key === 'team' ? 'px-3' : 'px-2'} ${column.align === 'left' ? 'text-left' : 'text-center'} font-semibold cursor-pointer hover:text-accent transition-colors select-none`}
+      className={`py-2.5 ${column.key === 'team' ? 'px-2 md:px-3' : 'px-1.5 md:px-2'} ${column.align === 'left' ? 'text-left' : 'text-center'} font-semibold cursor-pointer hover:text-accent transition-colors select-none ${hiddenClass}`}
       onClick={() => onSort(column.key)}
     >
       {column.label}{arrow}
