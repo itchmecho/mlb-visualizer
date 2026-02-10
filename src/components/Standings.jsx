@@ -58,33 +58,6 @@ const getTeamColor = (teamName) => {
   return team?.primary || '#666';
 };
 
-// Perceived brightness of a hex color (0-1)
-const getLuminance = (hex) => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-};
-
-// Get a bar-visible color: picks brighter of primary/secondary, lightens if both too dark
-const getBarColor = (teamName) => {
-  const team = TEAM_DATA[teamName];
-  if (!team) return '#999';
-  const pLum = getLuminance(team.primary);
-  const sLum = getLuminance(team.secondary);
-  const bright = pLum >= sLum ? team.primary : team.secondary;
-  const lum = Math.max(pLum, sLum);
-  if (lum >= 0.3) return bright;
-  // Lighten toward white
-  const r = parseInt(bright.slice(1, 3), 16);
-  const g = parseInt(bright.slice(3, 5), 16);
-  const b = parseInt(bright.slice(5, 7), 16);
-  const t = 0.4;
-  const lr = Math.round(r + (255 - r) * t);
-  const lg = Math.round(g + (255 - g) * t);
-  const lb = Math.round(b + (255 - b) * t);
-  return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
-};
 
 // Column definitions for sortable headers
 const COLUMNS = [
@@ -136,7 +109,6 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
   const last10Record = last10 ? `${last10.wins}-${last10.losses}` : '-';
   const runDiff = team.runDifferential || 0;
   const teamColor = getTeamColor(teamName);
-  const barColor = getBarColor(teamName);
   const isWorldSeriesWinner = WORLD_SERIES_WINNERS[season] === teamId;
 
   // Extract split records for tooltip
@@ -169,8 +141,8 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
             {rank}
           </span>
           <div
-            className="w-1.5 h-10 rounded-full"
-            style={{ backgroundColor: barColor }}
+            className="w-1.5 h-10 rounded-full shrink-0"
+            style={{ backgroundColor: teamColor }}
           />
           {teamId && (
             <img
@@ -184,7 +156,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onSelectTeam?.(team)}
-                className={`font-medium hover:underline transition-colors text-left cursor-pointer whitespace-nowrap ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
+                className={`font-medium hover:underline transition-colors text-left cursor-pointer ${isLeader ? 'text-accent hover:text-accent' : 'text-text-primary hover:text-accent'}`}
               >
                 {teamName}
               </button>
