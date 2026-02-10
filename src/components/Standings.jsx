@@ -166,11 +166,6 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
                 </span>
               )}
             </div>
-            {isLeader && !isWorldSeriesWinner && (
-              <span className="text-xs text-accent font-medium tracking-wide">
-                DIVISION LEADER
-              </span>
-            )}
             {/* Home/Away/1-Run tooltip */}
             {!condensed && (homeRecord || awayRecord || oneRunRecord) && (
               <div className="absolute top-full left-0 mt-1 opacity-0 group-hover/name:opacity-100 transition-opacity duration-200 bg-bg-elevated border border-border rounded-lg shadow-lg z-50 pointer-events-none px-3 py-2 whitespace-nowrap">
