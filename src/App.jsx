@@ -53,7 +53,7 @@ const pickRandomPlayers = (count, exclude = []) => {
 const ThemeToggle = ({ theme, onToggle }) => (
   <button
     onClick={onToggle}
-    className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all theme-transition"
+    className="p-2.5 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all theme-transition"
     title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
   >
     {theme === 'dark' ? (
