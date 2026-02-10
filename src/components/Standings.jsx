@@ -1,5 +1,5 @@
 // Team Standings Component
-// v4.1.4 | 2026-02-09
+// v4.1.5 | 2026-02-09
 
 import React, { useState } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
@@ -67,13 +67,12 @@ const getLuminance = (hex) => {
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 };
 
-// Pick the brighter of primary/secondary for row tint (dark colors vanish at low opacity)
+// Pick tint color for leader row — use primary unless it's too dark to see at 7% opacity
 const getTintColor = (teamName) => {
   const team = TEAM_DATA[teamName];
   if (!team) return '#666';
-  const pLum = getLuminance(team.primary);
-  const sLum = getLuminance(team.secondary);
-  return sLum > pLum ? team.secondary : team.primary;
+  if (getLuminance(team.primary) >= 0.05) return team.primary;
+  return getLuminance(team.secondary) > getLuminance(team.primary) ? team.secondary : team.primary;
 };
 
 
