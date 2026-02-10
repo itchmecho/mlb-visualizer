@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v2.1.0 | 2026-02-09
+// v2.2.0 | 2026-02-09
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -412,6 +412,63 @@ export const fetchLeaders = async (leaderCategories, season, statGroup, limit = 
   }
 };
 
+// Cache for awards (key: "season", value: awards object)
+const awardsCache = new TtlCache(TTL_LONG);
+
+/**
+ * Fetch season awards (MVP + Cy Young for both leagues)
+ * @param {number} season - Season year
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Object|null>} { alMvp, nlMvp, alCy, nlCy } with { id, name, teamId } each, or null
+ */
+export const fetchAwards = async (season, signal) => {
+  const cacheKey = `${season}`;
+
+  if (awardsCache.has(cacheKey)) {
+    return awardsCache.get(cacheKey);
+  }
+
+  const awardIds = [
+    { key: 'alMvp', id: 'ALMVP' },
+    { key: 'nlMvp', id: 'NLMVP' },
+    { key: 'alCy', id: 'ALCY' },
+    { key: 'nlCy', id: 'NLCY' },
+  ];
+
+  try {
+    const results = await Promise.all(
+      awardIds.map(async ({ id }) => {
+        const response = await fetch(
+          `${MLB_API_BASE}/awards/${id}/recipients?season=${season}`,
+          { signal }
+        );
+        const data = await response.json();
+        const winner = data.awards?.[0];
+        if (!winner?.player) return null;
+        return {
+          id: winner.player.id,
+          name: winner.player.fullName,
+          teamId: winner.team?.id || null,
+        };
+      })
+    );
+
+    if (signal?.aborted) return null;
+
+    const awards = {};
+    awardIds.forEach(({ key }, i) => {
+      awards[key] = results[i];
+    });
+
+    awardsCache.set(cacheKey, awards);
+    return awards;
+  } catch (error) {
+    if (error.name === 'AbortError') return null;
+    console.error('Awards fetch error:', error);
+    throw error;
+  }
+};
+
 /**
  * Fetch MLB schedule for a date range
  * @param {string} date - Date string (YYYY-MM-DD)
@@ -568,7 +625,7 @@ export const fetchCareerStats = async (playerId, group, signal) => {
 
   try {
     const response = await fetch(
-      `${MLB_API_BASE}/people/${playerId}/stats?stats=yearByYear&group=${group}&gameType=R`,
+      `${MLB_API_BASE}/people/${playerId}/stats?stats=yearByYear&group=${group}&gameType=R&hydrate=team`,
       { signal }
     );
     const data = await response.json();

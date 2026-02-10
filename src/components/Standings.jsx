@@ -1,9 +1,10 @@
 // Team Standings Component
-// v4.1.6 | 2026-02-09
+// v4.2.0 | 2026-02-09
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
 import { StandingsSkeleton } from './Skeleton';
+import { fetchAwards, fetchLeaders } from '../utils/api';
 
 // World Series winners by year (team ID)
 const WORLD_SERIES_WINNERS = {
@@ -404,44 +405,186 @@ const SortedTable = ({ teams, sortConfig, onSort, season, onSelectTeam, condense
   );
 };
 
-// Season Summary Banner — World Series champion
-const SeasonBanner = ({ season }) => {
+// Player headshot URL
+const getHeadshotUrl = (playerId) =>
+  `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`;
+
+// Skeleton shimmer for snapshot loading state
+const SnapshotSkeleton = () => (
+  <div className="mb-8 bg-bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
+    <div className="px-5 py-4 flex items-center gap-4 border-b border-border">
+      <div className="w-12 h-12 rounded-lg bg-bg-tertiary skeleton-shimmer" />
+      <div className="space-y-2">
+        <div className="h-5 w-48 rounded bg-bg-tertiary skeleton-shimmer" />
+        <div className="h-4 w-32 rounded bg-bg-tertiary skeleton-shimmer" />
+      </div>
+    </div>
+    <div className="px-5 py-4 grid grid-cols-2 gap-4">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-bg-tertiary skeleton-shimmer" />
+          <div className="space-y-1.5">
+            <div className="h-3 w-16 rounded bg-bg-tertiary skeleton-shimmer" />
+            <div className="h-4 w-24 rounded bg-bg-tertiary skeleton-shimmer" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Season Snapshot — WS champion, awards, stat leaders
+const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick }) => {
   const winnerId = WORLD_SERIES_WINNERS[season];
-  if (!winnerId) return null;
+  const winnerName = winnerId ? getTeamNameById(winnerId) : null;
+  const winnerColor = winnerName ? getTeamColor(winnerName) : '#666';
 
-  const teamName = getTeamNameById(winnerId);
-  if (!teamName) return null;
+  const hasAwards = seasonData?.awards && Object.values(seasonData.awards).some(Boolean);
+  const hasLeaders = seasonData?.leaders && Object.values(seasonData.leaders).some(Boolean);
 
-  const teamColor = getTeamColor(teamName);
+  // Nothing to show at all
+  if (!winnerId && !snapshotLoading && !hasAwards && !hasLeaders) return null;
+
+  if (snapshotLoading && !seasonData) return <SnapshotSkeleton />;
+
+  const awardEntries = hasAwards ? [
+    { key: 'alMvp', label: 'AL MVP', data: seasonData.awards.alMvp },
+    { key: 'nlMvp', label: 'NL MVP', data: seasonData.awards.nlMvp },
+    { key: 'alCy', label: 'AL CYA', data: seasonData.awards.alCy },
+    { key: 'nlCy', label: 'NL CYA', data: seasonData.awards.nlCy },
+  ].filter(e => e.data) : [];
+
+  const leaderEntries = hasLeaders ? [
+    { key: 'hr', label: 'HR', data: seasonData.leaders.hr },
+    { key: 'avg', label: 'AVG', data: seasonData.leaders.avg },
+    { key: 'era', label: 'ERA', data: seasonData.leaders.era },
+    { key: 'k', label: 'K', data: seasonData.leaders.k },
+  ].filter(e => e.data) : [];
 
   return (
     <div
       className="mb-8 bg-bg-card rounded-xl border border-border overflow-hidden animate-fade-in"
-      style={{ borderLeftWidth: '4px', borderLeftColor: teamColor }}
+      style={winnerId ? { borderLeftWidth: '4px', borderLeftColor: winnerColor } : undefined}
     >
-      <div className="px-5 py-4 flex items-center gap-4">
-        <img
-          src={getTeamLogoUrl(winnerId)}
-          alt={teamName}
-          className="w-12 h-12 object-contain team-logo"
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
-        <div>
-          <h3 className="font-display text-xl tracking-wide text-text-primary">
-            {teamName}
-          </h3>
-          <p className="text-sm text-text-muted">
-            {season} World Series Champions
-          </p>
+      {/* World Series Champions */}
+      {winnerId && winnerName && (
+        <div className="px-5 py-4 flex items-center gap-4 border-b border-border">
+          <img
+            src={getTeamLogoUrl(winnerId)}
+            alt={winnerName}
+            className="w-12 h-12 object-contain team-logo"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <div>
+            <h3 className="font-display text-xl tracking-wide text-text-primary">
+              {winnerName}
+            </h3>
+            <p className="text-sm text-text-muted">
+              {season} World Series Champions
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Awards Section */}
+      {awardEntries.length > 0 && (
+        <div className={`px-5 py-4 ${leaderEntries.length > 0 ? 'border-b border-border' : ''}`}>
+          <h4 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">Awards</h4>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+            {awardEntries.map(({ key, label, data }) => (
+              <div key={key} className="flex items-center gap-3 min-w-0">
+                <img
+                  src={getHeadshotUrl(data.id)}
+                  alt={data.name}
+                  className="w-8 h-8 rounded-full object-cover bg-bg-tertiary shrink-0"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-wider text-text-muted leading-none mb-0.5">{label}</p>
+                  <button
+                    onClick={() => onPlayerClick?.({ id: data.id })}
+                    className="text-sm font-medium text-text-primary hover:text-accent transition-colors cursor-pointer truncate block max-w-full"
+                  >
+                    {data.name}
+                  </button>
+                </div>
+                {data.teamId && (
+                  <img
+                    src={getTeamLogoUrl(data.teamId)}
+                    alt=""
+                    className="w-5 h-5 object-contain shrink-0 ml-auto team-logo"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Season Leaders Section */}
+      {leaderEntries.length > 0 && (
+        <div className="px-5 py-4">
+          <h4 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">Season Leaders</h4>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+            {leaderEntries.map(({ key, label, data }) => (
+              <div key={key} className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold text-accent w-8 shrink-0">{label}</span>
+                <button
+                  onClick={() => onPlayerClick?.({ id: data.person?.id })}
+                  className="text-sm text-text-primary hover:text-accent transition-colors cursor-pointer truncate"
+                >
+                  {data.person?.fullName || 'Unknown'}
+                </button>
+                <span className="text-sm font-display font-bold text-text-secondary ml-auto shrink-0">
+                  {data.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const Standings = ({ standings, season, loading, onSelectTeam }) => {
+const Standings = ({ standings, season, loading, onSelectTeam, onPlayerClick }) => {
   const [sortConfig, setSortConfig] = useState(null);
   const [condensed, setCondensed] = useState(false);
+  const [seasonData, setSeasonData] = useState(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+
+  // Fetch awards + stat leaders when season changes
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const loadSeasonData = async () => {
+      setSnapshotLoading(true);
+      try {
+        const [awards, hrLeader, avgLeader, eraLeader, kLeader] = await Promise.all([
+          fetchAwards(season, signal),
+          fetchLeaders('homeRuns', season, 'hitting', 1, signal),
+          fetchLeaders('battingAverage', season, 'hitting', 1, signal),
+          fetchLeaders('earnedRunAverage', season, 'pitching', 1, signal),
+          fetchLeaders('strikeouts', season, 'pitching', 1, signal),
+        ]);
+        if (!signal.aborted) {
+          setSeasonData({
+            awards,
+            leaders: { hr: hrLeader[0], avg: avgLeader[0], era: eraLeader[0], k: kLeader[0] },
+          });
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error('Season data fetch failed:', e);
+      } finally {
+        if (!signal.aborted) setSnapshotLoading(false);
+      }
+    };
+
+    loadSeasonData();
+    return () => controller.abort();
+  }, [season]);
 
   const handleSort = (key) => {
     // Skip sorting by team name in condensed if column not visible
@@ -551,8 +694,13 @@ const Standings = ({ standings, season, loading, onSelectTeam }) => {
         )}
       </div>
 
-      {/* Season Summary Banner */}
-      <SeasonBanner season={season} />
+      {/* Season Snapshot */}
+      <SeasonSnapshot
+        season={season}
+        seasonData={seasonData}
+        snapshotLoading={snapshotLoading}
+        onPlayerClick={onPlayerClick}
+      />
 
       {/* Sorted view: single flat table */}
       {isSorted ? (

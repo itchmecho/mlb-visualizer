@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.0.1 | 2026-02-09
+// v4.1.7 | 2026-02-09
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -1001,7 +1001,7 @@ function App() {
 
         {/* Teams/Standings View */}
         {showTeams && !selectedTeam && (
-          <Standings standings={standings} season={season} loading={teamsLoading} onSelectTeam={handleSelectTeam} />
+          <Standings standings={standings} season={season} loading={teamsLoading} onSelectTeam={handleSelectTeam} onPlayerClick={handleLeaderPlayerClick} />
         )}
 
         {/* Leaders View */}
