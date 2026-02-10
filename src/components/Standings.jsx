@@ -1,5 +1,5 @@
 // Team Standings Component
-// v4.1.5 | 2026-02-09
+// v4.1.6 | 2026-02-09
 
 import React, { useState } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
@@ -67,12 +67,14 @@ const getLuminance = (hex) => {
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 };
 
-// Pick tint color for leader row — use primary unless it's too dark to see at 7% opacity
-const getTintColor = (teamName) => {
+// Get hex alpha suffix for leader row tint — dark primaries get higher opacity so they're visible
+const getTintAlpha = (teamName) => {
   const team = TEAM_DATA[teamName];
-  if (!team) return '#666';
-  if (getLuminance(team.primary) >= 0.05) return team.primary;
-  return getLuminance(team.secondary) > getLuminance(team.primary) ? team.secondary : team.primary;
+  if (!team) return '12';
+  const lum = getLuminance(team.primary);
+  if (lum >= 0.08) return '12'; // ~7% — bright colors (reds, oranges)
+  if (lum >= 0.03) return '22'; // ~13% — medium darks (blues)
+  return '35';                   // ~21% — very dark (navies, blacks)
 };
 
 
@@ -126,7 +128,6 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
   const last10Record = last10 ? `${last10.wins}-${last10.losses}` : '-';
   const runDiff = team.runDifferential || 0;
   const teamColor = getTeamColor(teamName);
-  const tintColor = getTintColor(teamName);
   const isWorldSeriesWinner = WORLD_SERIES_WINNERS[season] === teamId;
 
   // Extract split records for tooltip
@@ -145,7 +146,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
       `}
       style={{
         animationDelay: `${rank * 50}ms`,
-        backgroundColor: isLeader ? tintColor + '12' : undefined,
+        backgroundColor: isLeader ? teamColor + getTintAlpha(teamName) : undefined,
       }}
     >
       <td className="py-2.5 px-3">

@@ -1,6 +1,6 @@
 {
   "name": "mlb-visualizer",
-  "version": "4.1.5",
+  "version": "4.1.6",
   "description": "MLB Player Stat Card Visualizer",
   "type": "module",
   "scripts": {
