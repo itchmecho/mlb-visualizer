@@ -130,25 +130,25 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
         backgroundColor: isLeader ? teamColor + '12' : undefined,
       }}
     >
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-3">
+      <td className="py-2.5 px-3">
+        <div className="flex items-center gap-2">
           <span
             className={`
-              font-display text-lg w-6 text-center
+              font-display text-lg w-5 text-center shrink-0
               ${isLeader ? 'text-accent' : 'text-text-muted'}
             `}
           >
             {rank}
           </span>
           <div
-            className="w-1.5 h-10 rounded-full shrink-0"
+            className="w-1 h-8 rounded-full shrink-0"
             style={{ backgroundColor: teamColor }}
           />
           {teamId && (
             <img
               src={getTeamLogoUrl(teamId)}
               alt={teamName}
-              className="w-9 h-9 object-contain transition-transform duration-300 group-hover/row:scale-110 team-logo"
+              className="w-7 h-7 object-contain shrink-0 transition-transform duration-300 group-hover/row:scale-110 team-logo"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           )}
@@ -194,29 +194,29 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
           </div>
         </div>
       </td>
-      <td className="py-3 px-3 text-center">
-        <span className="font-display text-xl text-text-primary">{wins}</span>
+      <td className="py-2.5 px-2 text-center">
+        <span className="font-display text-lg text-text-primary">{wins}</span>
       </td>
-      <td className="py-3 px-3 text-center">
-        <span className="font-display text-xl text-text-secondary">{losses}</span>
+      <td className="py-2.5 px-2 text-center">
+        <span className="font-display text-lg text-text-secondary">{losses}</span>
       </td>
       {!condensed && (
-        <td className="py-3 px-3 text-center">
+        <td className="py-2.5 px-2 text-center">
           <span className="text-sm font-medium text-text-secondary">{pct}</span>
         </td>
       )}
-      <td className="py-3 px-3 text-center">
+      <td className="py-2.5 px-2 text-center">
         <span className={`text-sm ${gb === '-' ? 'text-accent font-bold' : 'text-text-muted'}`}>
           {gb}
         </span>
       </td>
       {!condensed && (
         <>
-          <td className="py-3 px-3 text-center">
-            <div className="relative h-6 flex items-center justify-center" style={{ minWidth: '4rem' }}>
+          <td className="py-2.5 px-1.5 text-center">
+            <div className="relative h-5 flex items-center justify-center" style={{ minWidth: '3rem' }}>
               {/* Centered bar */}
               <div className="absolute inset-0 flex items-center">
-                <div className="relative w-full h-4">
+                <div className="relative w-full h-3.5">
                   {/* Center line */}
                   <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border" />
                   {/* Bar */}
@@ -245,13 +245,13 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
               </span>
             </div>
           </td>
-          <td className="py-3 px-3 text-center">
+          <td className="py-2.5 px-2 text-center">
             <span className="text-sm text-text-secondary">{last10Record}</span>
           </td>
-          <td className="py-3 px-3 text-center">
+          <td className="py-2.5 px-1.5 text-center">
             <span
               className={`
-                inline-block min-w-[2.5rem] px-2 py-0.5 rounded text-sm font-bold
+                inline-block min-w-[2rem] px-1.5 py-0.5 rounded text-sm font-bold
                 ${streak.startsWith('W')
                   ? 'bg-green-500/20 text-green-400'
                   : streak.startsWith('L')
@@ -279,7 +279,7 @@ const SortableHeader = ({ column, sortConfig, onSort, condensed }) => {
 
   return (
     <th
-      className={`py-3 ${column.key === 'team' ? 'px-4' : 'px-3'} ${column.align === 'left' ? 'text-left' : 'text-center'} font-semibold cursor-pointer hover:text-accent transition-colors select-none`}
+      className={`py-2.5 ${column.key === 'team' ? 'px-3' : 'px-2'} ${column.align === 'left' ? 'text-left' : 'text-center'} font-semibold cursor-pointer hover:text-accent transition-colors select-none`}
       onClick={() => onSort(column.key)}
     >
       {column.label}{arrow}
@@ -547,7 +547,7 @@ const Standings = ({ standings, season, loading, onSelectTeam }) => {
         />
       ) : (
         /* Division view: two-column layout */
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-6">
           {/* American League */}
           <div className="space-y-6">
             <div className="flex items-center gap-3 px-2">
