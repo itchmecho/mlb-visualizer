@@ -1,5 +1,5 @@
 // Team Standings Component
-// v4.1.1 | 2026-02-09
+// v4.1.2 | 2026-02-09
 
 import React, { useState } from 'react';
 import { getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
