@@ -34,7 +34,7 @@ const TOP_PLAYERS = [
   'Corbin Carroll', 'Jose Ramirez', 'Vladimir Guerrero Jr.',
   'Pete Alonso', 'Francisco Lindor', 'Mike Trout', 'Elly De La Cruz',
   'Spencer Strider', 'Gerrit Cole', 'Zack Wheeler', 'Corbin Burnes',
-  'Shane McClanahan', 'Yoshinobu Yamamoto', 'Logan Webb', 'Ranger Suarez',
+  'Yoshinobu Yamamoto', 'Logan Webb', 'Ranger Suarez',
   'Tyler Glasnow', 'Kevin Gausman', 'Pablo Lopez', 'Sonny Gray',
 ];
 
