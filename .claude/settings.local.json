@@ -19,7 +19,13 @@
       "Bash(npx vite build)",
       "Bash(bash scripts/deploy.sh:*)",
       "WebFetch(domain:statsapi.mlb.com)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(npx vite:*)",
+      "Bash(npx:*)",
+      "Bash(npm root:*)",
+      "Bash(node -e:*)"
     ]
   },
   "hooks": {}

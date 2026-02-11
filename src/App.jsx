@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.4.0 | 2026-02-10
+// v4.5.0 | 2026-02-10
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -11,7 +11,7 @@ import Leaders from './components/Leaders';
 import Scoreboard from './components/Scoreboard';
 import PlayoffBracket from './components/PlayoffBracket';
 import { PlayerCardSkeleton, StandingsSkeleton, TeamCardSkeleton } from './components/Skeleton';
-import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats, fetchPlayerAwards } from './utils/api';
+import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats, fetchPlayerAwards, fetchTopPlayerNames } from './utils/api';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
 import { version as APP_VERSION } from '../package.json';
 
@@ -24,23 +24,16 @@ const AVAILABLE_SEASONS = Array.from(
   (_, i) => latestSeason - i
 );
 
-// Top players for suggestion cycling (mix of hitters & pitchers)
-const TOP_PLAYERS = [
-  'Shohei Ohtani', 'Aaron Judge', 'Mookie Betts', 'Ronald Acuna Jr.',
-  'Freddie Freeman', 'Corey Seager', 'Juan Soto', 'Trea Turner',
-  'Manny Machado', 'Rafael Devers', 'Bobby Witt Jr.', 'Julio Rodriguez',
-  'Bryce Harper', 'Fernando Tatis Jr.', 'Yordan Alvarez', 'Kyle Tucker',
-  'Marcus Semien', 'Matt Olson', 'Adolis Garcia', 'Gunnar Henderson',
-  'Corbin Carroll', 'Jose Ramirez', 'Vladimir Guerrero Jr.',
-  'Pete Alonso', 'Francisco Lindor', 'Mike Trout', 'Elly De La Cruz',
-  'Spencer Strider', 'Gerrit Cole', 'Zack Wheeler', 'Corbin Burnes',
-  'Yoshinobu Yamamoto', 'Logan Webb', 'Ranger Suarez',
-  'Tyler Glasnow', 'Kevin Gausman', 'Pablo Lopez', 'Sonny Gray',
+// Fallback players for suggestions before API responds or on error
+const FALLBACK_PLAYERS = [
+  'Aaron Judge', 'Shohei Ohtani', 'Juan Soto', 'Mookie Betts',
+  'Bobby Witt Jr.', 'Gunnar Henderson', 'Corbin Burnes', 'Gerrit Cole',
+  'Freddie Freeman', 'Bryce Harper',
 ];
 
-// Pick n random unique players from the pool, excluding current picks
-const pickRandomPlayers = (count, exclude = []) => {
-  const available = TOP_PLAYERS.filter(p => !exclude.includes(p));
+// Pick n random unique players from a pool, excluding current picks
+const pickFromPool = (pool, count, exclude = []) => {
+  const available = pool.filter(p => !exclude.includes(p));
   const picked = [];
   for (let i = 0; i < count && available.length > 0; i++) {
     const idx = Math.floor(Math.random() * available.length);
@@ -157,22 +150,44 @@ function App() {
   const [season, setSeason] = useState(router.season);
   const [isPitcher, setIsPitcher] = useState(false);
 
+  // Dynamic suggestion pool — fetched from league leaders, falls back to safe defaults
+  const [playerPool, setPlayerPool] = useState(FALLBACK_PLAYERS);
+  const playerPoolRef = useRef(playerPool);
+  playerPoolRef.current = playerPool;
+
   // Suggestion cycling state
-  const [suggestions, setSuggestions] = useState(() => pickRandomPlayers(3));
+  const [suggestions, setSuggestions] = useState(() => pickFromPool(FALLBACK_PLAYERS, 3));
   const suggestionsRef = useRef(suggestions);
   suggestionsRef.current = suggestions;
+
+  // Fetch dynamic player pool on mount / season change
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchTopPlayerNames(season, controller.signal).then(names => {
+      if (names.length > 0) {
+        setPlayerPool(names);
+        // Re-init suggestions from the fresh pool if no player is loaded
+        if (!player1) {
+          setSuggestions(pickFromPool(names, 3));
+        }
+      }
+    });
+    return () => controller.abort();
+  }, [season]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cycle one random suggestion slot every 3 seconds
   useEffect(() => {
     if (player1 || loading || view !== 'players') return;
     const interval = setInterval(() => {
       const slotIdx = Math.floor(Math.random() * 3);
-      const newPick = pickRandomPlayers(1, suggestionsRef.current)[0];
-      setSuggestions(prev => {
-        const next = [...prev];
-        next[slotIdx] = newPick;
-        return next;
-      });
+      const newPick = pickFromPool(playerPoolRef.current, 1, suggestionsRef.current)[0];
+      if (newPick) {
+        setSuggestions(prev => {
+          const next = [...prev];
+          next[slotIdx] = newPick;
+          return next;
+        });
+      }
     }, 3000);
     return () => clearInterval(interval);
   }, [player1, loading, view]);

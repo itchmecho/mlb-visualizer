@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v2.3.0 | 2026-02-10
+// v2.4.0 | 2026-02-10
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -800,5 +800,37 @@ export const fetchTeamRoster = async (teamId, season, signal) => {
     if (error.name === 'AbortError') return [];
     console.error('Team roster error:', error);
     throw error;
+  }
+};
+
+/**
+ * Fetch top player names from league leaders (HR, AVG, ERA)
+ * Returns a deduplicated array of ~20-25 player names for suggestion buttons.
+ * Piggybacks on existing fetchLeaders + leadersCache.
+ * @param {number} season - Season year
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<string[]>} Array of unique player full names
+ */
+export const fetchTopPlayerNames = async (season, signal) => {
+  try {
+    const [hrLeaders, avgLeaders, eraLeaders] = await Promise.all([
+      fetchLeaders('homeRuns', season, 'hitting', 10, signal),
+      fetchLeaders('battingAverage', season, 'hitting', 10, signal),
+      fetchLeaders('earnedRunAverage', season, 'pitching', 10, signal),
+    ]);
+
+    const names = new Set();
+    for (const list of [hrLeaders, avgLeaders, eraLeaders]) {
+      for (const leader of list) {
+        const name = leader.person?.fullName;
+        if (name) names.add(name);
+      }
+    }
+
+    return [...names];
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Top player names error:', error);
+    return [];
   }
 };
