@@ -231,41 +231,6 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
                 </span>
               </div>
 
-              {/* Season Awards */}
-              {seasonAwards.length > 0 && (
-                <div className="mt-3 md:mt-4">
-                  <span className="text-xs text-text-muted font-medium block mb-1.5">{season} AWARDS</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {seasonAwards.map((a, i) => (
-                      <span
-                        key={`${a.id}-${i}`}
-                        className="px-2.5 py-1 rounded-md text-xs font-bold border"
-                        style={{
-                          background: 'linear-gradient(135deg, rgba(184, 134, 11, 0.13), rgba(255, 215, 0, 0.13))',
-                          borderColor: 'rgba(218, 165, 32, 0.35)',
-                          color: '#daa520',
-                        }}
-                      >
-                        {a.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Career Awards */}
-              {careerAwardsSummary.length > 0 && (
-                <div className="mt-3 md:mt-4">
-                  <span className="text-xs text-text-muted font-medium block mb-1.5">CAREER</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {careerAwardsSummary.map(a => (
-                      <span key={a.name} className="bg-bg-tertiary px-2.5 py-1 rounded-md text-xs font-bold text-text-primary">
-                        {a.count > 1 ? `${a.count}x ` : ''}{a.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -284,6 +249,42 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
               </div>
             ))}
           </div>
+
+          {/* Season Awards */}
+          {seasonAwards.length > 0 && (
+            <div className="mt-4">
+              <span className="text-xs text-text-muted font-medium block mb-1.5">{season} AWARDS</span>
+              <div className="flex flex-wrap gap-1.5">
+                {seasonAwards.map((a, i) => (
+                  <span
+                    key={`${a.id}-${i}`}
+                    className="px-2.5 py-1 rounded-md text-xs font-bold border"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(184, 134, 11, 0.13), rgba(255, 215, 0, 0.13))',
+                      borderColor: 'rgba(218, 165, 32, 0.35)',
+                      color: '#daa520',
+                    }}
+                  >
+                    {a.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Career Awards */}
+          {careerAwardsSummary.length > 0 && (
+            <div className="mt-4">
+              <span className="text-xs text-text-muted font-medium block mb-1.5">CAREER</span>
+              <div className="flex flex-wrap gap-1.5">
+                {careerAwardsSummary.map(a => (
+                  <span key={a.name} className="bg-bg-tertiary px-2.5 py-1 rounded-md text-xs font-bold text-text-primary">
+                    {a.count > 1 ? `${a.count}x ` : ''}{a.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* External Links */}
           <div className="mt-4 pt-4 border-t border-border-light">
