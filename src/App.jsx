@@ -31,7 +31,7 @@ const TOP_PLAYERS = [
   'Manny Machado', 'Rafael Devers', 'Bobby Witt Jr.', 'Julio Rodriguez',
   'Bryce Harper', 'Fernando Tatis Jr.', 'Yordan Alvarez', 'Kyle Tucker',
   'Marcus Semien', 'Matt Olson', 'Adolis Garcia', 'Gunnar Henderson',
-  'Corbin Carroll', 'Wander Franco', 'Jose Ramirez', 'Vladimir Guerrero Jr.',
+  'Corbin Carroll', 'Jose Ramirez', 'Vladimir Guerrero Jr.',
   'Pete Alonso', 'Francisco Lindor', 'Mike Trout', 'Elly De La Cruz',
   'Spencer Strider', 'Gerrit Cole', 'Zack Wheeler', 'Corbin Burnes',
   'Shane McClanahan', 'Yoshinobu Yamamoto', 'Logan Webb', 'Ranger Suarez',
