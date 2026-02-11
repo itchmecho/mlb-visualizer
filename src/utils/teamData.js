@@ -1,5 +1,5 @@
 // Team data with IDs, colors, and abbreviations
-// v1.1.0 | 2026-02-05
+// v1.2.0 | 2026-02-10
 
 export const TEAM_DATA = {
   'Arizona Diamondbacks': { id: 109, abbr: 'ARI', slug: 'dbacks', primary: '#A71930', secondary: '#E3D4AD' },
@@ -21,6 +21,7 @@ export const TEAM_DATA = {
   'Minnesota Twins': { id: 142, abbr: 'MIN', slug: 'twins', primary: '#002B5C', secondary: '#D31145' },
   'New York Mets': { id: 121, abbr: 'NYM', slug: 'mets', primary: '#002D72', secondary: '#FF5910' },
   'New York Yankees': { id: 147, abbr: 'NYY', slug: 'yankees', primary: '#003087', secondary: '#E4002C' },
+  'Athletics': { id: 133, abbr: 'ATH', slug: 'athletics', primary: '#003831', secondary: '#EFB21E' },
   'Oakland Athletics': { id: 133, abbr: 'OAK', slug: 'athletics', primary: '#003831', secondary: '#EFB21E' },
   'Philadelphia Phillies': { id: 143, abbr: 'PHI', slug: 'phillies', primary: '#E81828', secondary: '#002D72' },
   'Pittsburgh Pirates': { id: 134, abbr: 'PIT', slug: 'pirates', primary: '#27251F', secondary: '#FDB827' },
