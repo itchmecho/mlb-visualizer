@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.3.0 | 2026-02-09
+// v4.4.0 | 2026-02-10
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -11,7 +11,7 @@ import Leaders from './components/Leaders';
 import Scoreboard from './components/Scoreboard';
 import PlayoffBracket from './components/PlayoffBracket';
 import { PlayerCardSkeleton, StandingsSkeleton, TeamCardSkeleton } from './components/Skeleton';
-import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats } from './utils/api';
+import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats, fetchPlayerAwards } from './utils/api';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
 import { version as APP_VERSION } from '../package.json';
 
@@ -145,10 +145,11 @@ function App() {
   const [teamRoster, setTeamRoster] = useState(null);
   const [rosterLoading, setRosterLoading] = useState(false);
 
-  // Player card tab data (career stats, game log, splits)
+  // Player card tab data (career stats, game log, splits, awards)
   const [careerStats, setCareerStats] = useState(null);
   const [gameLogData, setGameLogData] = useState(null);
   const [splitData, setSplitData] = useState(null);
+  const [playerAwards, setPlayerAwards] = useState(null);
 
   // Shared state
   const [loading, setLoading] = useState(false);
@@ -351,6 +352,7 @@ function App() {
       setCareerStats(null);
       setGameLogData(null);
       setSplitData(null);
+      setPlayerAwards(null);
     } else if (slot === 'player2') {
       setPlayer2(player);
     }
@@ -410,15 +412,17 @@ function App() {
   // Background fetch for player card tab data (career, game log, splits)
   const fetchPlayerTabData = async (playerId, seasonYear, statGroup, signal) => {
     try {
-      // Fetch career stats and game log in parallel
-      const [career, gameLog] = await Promise.all([
+      // Fetch career stats, game log, and awards in parallel
+      const [career, gameLog, awards] = await Promise.all([
         fetchCareerStats(playerId, statGroup, signal),
         fetchGameLog(playerId, seasonYear, statGroup, signal),
+        fetchPlayerAwards(playerId, signal),
       ]);
 
       if (!signal.aborted) {
         setCareerStats(career);
         setGameLogData(gameLog);
+        setPlayerAwards(awards);
       }
 
       // Fetch split stats (last 7, 15, 30 games) in parallel
@@ -454,7 +458,7 @@ function App() {
     setSeason(newSeason);
     setLeagueStats(null);
     setStandings(null);
-    setCareerStats(null); setGameLogData(null); setSplitData(null);
+    setCareerStats(null); setGameLogData(null); setSplitData(null); setPlayerAwards(null);
 
     // Update URL with new season (replace, not push — back shouldn't undo season changes)
     router.replace(buildHash(router.getCurrentPath(), newSeason, latestSeason));
@@ -734,7 +738,7 @@ function App() {
     setTeamRoster(null);
     setLeagueStats(null);
     setStandings(null);
-    setCareerStats(null); setGameLogData(null); setSplitData(null);
+    setCareerStats(null); setGameLogData(null); setSplitData(null); setPlayerAwards(null);
     setError(null);
     router.navigate(buildHash('', season, latestSeason));
   };
@@ -972,6 +976,7 @@ function App() {
               careerStats={careerStats}
               gameLogData={gameLogData}
               splitData={splitData}
+              playerAwards={playerAwards}
             />
           </div>
         )}

@@ -1,12 +1,12 @@
 // PlayerCard component - Main stat card with tabbed interface
-// v2.2.0 | 2026-02-09
+// v2.3.0 | 2026-02-10
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
 import CareerStats from './CareerStats';
 import GameLog from './GameLog';
 import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
-import { enhanceHittingStats } from '../utils/api';
+import { enhanceHittingStats, AWARD_DISPLAY } from '../utils/api';
 import { PERCENTILE_COLORS } from '../utils/percentile';
 
 const TABS = [
@@ -112,7 +112,7 @@ const PlayerPhoto = ({ playerId, playerName }) => {
   );
 };
 
-const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPitcher, onSelectTeam, standings, careerStats, gameLogData, splitData, onCareerSeasonChange }, ref) => {
+const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPitcher, onSelectTeam, standings, careerStats, gameLogData, splitData, onCareerSeasonChange, playerAwards }, ref) => {
   const [activeTab, setActiveTab] = useState('overview');
 
   const teamName = player.currentTeam?.name;
@@ -135,6 +135,32 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
     }
     return playerStats;
   }, [playerStats, isPitcher]);
+
+  // Season awards for selected year
+  const seasonAwards = useMemo(() => {
+    if (!playerAwards?.length) return [];
+    return playerAwards
+      .filter(a => a.season === String(season))
+      .map(a => ({ id: a.id, name: AWARD_DISPLAY[a.id]?.short || a.name }));
+  }, [playerAwards, season]);
+
+  // Career awards aggregated by display name, sorted by importance
+  const careerAwardsSummary = useMemo(() => {
+    if (!playerAwards?.length) return [];
+    const counts = {};
+    playerAwards.forEach(a => {
+      const name = AWARD_DISPLAY[a.id]?.short || a.name;
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    const order = ['MVP', 'Cy Young', 'ROY', 'All-Star', 'Silver Slugger', 'Gold Glove', 'All-MLB 1st', 'All-MLB 2nd', 'Hank Aaron', 'HR Derby', 'Clemente'];
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => {
+        const ai = order.indexOf(a.name);
+        const bi = order.indexOf(b.name);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      });
+  }, [playerAwards]);
 
   return (
     <div
@@ -204,6 +230,42 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
                   {isPitcher ? 'STARTING PITCHER' : player.primaryPosition?.name?.toUpperCase() || player.primaryPosition?.abbreviation}
                 </span>
               </div>
+
+              {/* Season Awards */}
+              {seasonAwards.length > 0 && (
+                <div className="mt-3 md:mt-4">
+                  <span className="text-xs text-text-muted font-medium block mb-1.5">{season} AWARDS</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {seasonAwards.map((a, i) => (
+                      <span
+                        key={`${a.id}-${i}`}
+                        className="px-2.5 py-1 rounded-md text-xs font-bold border"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(184, 134, 11, 0.13), rgba(255, 215, 0, 0.13))',
+                          borderColor: 'rgba(218, 165, 32, 0.35)',
+                          color: '#daa520',
+                        }}
+                      >
+                        {a.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Career Awards */}
+              {careerAwardsSummary.length > 0 && (
+                <div className="mt-3 md:mt-4">
+                  <span className="text-xs text-text-muted font-medium block mb-1.5">CAREER</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {careerAwardsSummary.map(a => (
+                      <span key={a.name} className="bg-bg-tertiary px-2.5 py-1 rounded-md text-xs font-bold text-text-primary">
+                        {a.count > 1 ? `${a.count}x ` : ''}{a.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

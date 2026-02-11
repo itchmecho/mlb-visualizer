@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v2.2.0 | 2026-02-09
+// v2.3.0 | 2026-02-10
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -675,6 +675,58 @@ export const fetchGameLog = async (playerId, season, group, signal) => {
     if (error.name === 'AbortError') return [];
     console.error('Game log error:', error);
     throw error;
+  }
+};
+
+// --- Player Awards ---
+
+const MAJOR_AWARD_IDS = new Set([
+  'ALMVP', 'NLMVP', 'ALCY', 'NLCY', 'ALROY', 'NLROY',
+  'ALSS', 'NLSS', 'ALGG', 'NLGG', 'ALAS', 'NLAS',
+  'MLBAFIRST', 'MLBSECOND', 'ALHAA', 'NLHAA', 'HRDERBYWIN', 'MLBRC',
+]);
+
+export const AWARD_DISPLAY = {
+  ALMVP: { short: 'MVP' }, NLMVP: { short: 'MVP' },
+  ALCY: { short: 'Cy Young' }, NLCY: { short: 'Cy Young' },
+  ALROY: { short: 'ROY' }, NLROY: { short: 'ROY' },
+  ALSS: { short: 'Silver Slugger' }, NLSS: { short: 'Silver Slugger' },
+  ALGG: { short: 'Gold Glove' }, NLGG: { short: 'Gold Glove' },
+  ALAS: { short: 'All-Star' }, NLAS: { short: 'All-Star' },
+  MLBAFIRST: { short: 'All-MLB 1st' },
+  MLBSECOND: { short: 'All-MLB 2nd' },
+  ALHAA: { short: 'Hank Aaron' }, NLHAA: { short: 'Hank Aaron' },
+  HRDERBYWIN: { short: 'HR Derby' },
+  MLBRC: { short: 'Clemente' },
+};
+
+const playerAwardsCache = new TtlCache(TTL_LONG);
+
+/**
+ * Fetch player's major awards (MVP, Cy Young, All-Star, etc.)
+ * @param {number} playerId - Player ID
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of { id, name, season } objects (filtered to major awards)
+ */
+export const fetchPlayerAwards = async (playerId, signal) => {
+  if (playerAwardsCache.has(playerId)) {
+    return playerAwardsCache.get(playerId);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/people/${playerId}/awards`,
+      { signal }
+    );
+    const data = await response.json();
+    const awards = (data.awards || []).filter(a => MAJOR_AWARD_IDS.has(a.id));
+
+    playerAwardsCache.set(playerId, awards);
+    return awards;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Player awards error:', error);
+    return [];
   }
 };
 
