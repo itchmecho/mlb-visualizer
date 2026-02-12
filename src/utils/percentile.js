@@ -1,5 +1,5 @@
 // Percentile calculation utilities
-// v1.1.0 | 2026-02-04
+// v1.2.0 | 2026-02-11
 
 /**
  * Calculate percentile of a value within an array
@@ -68,4 +68,19 @@ export const getPercentileColor = (percentile) => {
   if (percentile >= 40) return PERCENTILE_COLORS.average;
   if (percentile >= 20) return PERCENTILE_COLORS.belowAvg;
   return PERCENTILE_COLORS.poor;
+};
+
+/**
+ * Calculate median of an array of numeric values
+ * @param {number[]} values - Array of values
+ * @returns {number|null} Median value or null if empty
+ */
+export const calculateMedian = (values) => {
+  const valid = values.filter(v => v !== undefined && v !== null && !isNaN(v));
+  const sorted = [...valid].sort((a, b) => a - b);
+  if (sorted.length === 0) return null;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
 };

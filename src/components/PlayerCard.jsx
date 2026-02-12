@@ -1,5 +1,5 @@
 // PlayerCard component - Main stat card with tabbed interface
-// v2.3.0 | 2026-02-10
+// v2.4.0 | 2026-02-11
 
 import React, { forwardRef, useMemo, useState } from 'react';
 import StatCategory from './StatCategory';
@@ -7,7 +7,9 @@ import CareerStats from './CareerStats';
 import GameLog from './GameLog';
 import { getTeamData, getTeamLogoUrl, getPlayerHeadshotUrl } from '../utils/teamData';
 import { enhanceHittingStats, AWARD_DISPLAY } from '../utils/api';
-import { PERCENTILE_COLORS } from '../utils/percentile';
+import { calculatePercentile, getPercentileColor, PERCENTILE_COLORS } from '../utils/percentile';
+import { formatStatValue } from '../utils/formatStats';
+import { getStatDescription } from '../utils/statDescriptions';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -60,15 +62,13 @@ const HITTER_STATS = {
     { key: 'rbi', label: 'RBI', higherBetter: true },
     { key: 'runs', label: 'R', higherBetter: true },
     { key: 'hits', label: 'H', higherBetter: true },
+    { key: 'stolenBases', label: 'SB', higherBetter: true },
   ],
   discipline: [
     { key: 'baseOnBalls', label: 'BB', higherBetter: true },
     { key: 'strikeOuts', label: 'K', higherBetter: false },
     { key: 'walkRate', label: 'BB%', higherBetter: true },
     { key: 'strikeoutRate', label: 'K%', higherBetter: false },
-  ],
-  speed: [
-    { key: 'stolenBases', label: 'SB', higherBetter: true },
   ],
 };
 
@@ -85,7 +85,6 @@ const HITTER_CATEGORIES = [
   { key: 'power', title: 'POWER' },
   { key: 'production', title: 'RUN PRODUCTION' },
   { key: 'discipline', title: 'DISCIPLINE' },
-  { key: 'speed', title: 'SPEED' },
 ];
 
 // Player photo component with fallback
@@ -135,6 +134,25 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
     }
     return playerStats;
   }, [playerStats, isPitcher]);
+
+  // Compute all percentiles for At a Glance highlights
+  const { strengths, weaknesses } = useMemo(() => {
+    if (!enhancedPlayerStats || !leagueStats?.length) return { strengths: [], weaknesses: [] };
+
+    const allStats = Object.values(statConfig).flat();
+    const withPercentiles = allStats.map(stat => {
+      const value = enhancedPlayerStats[stat.key];
+      const leagueValues = leagueStats.map(p => parseFloat(p[stat.key])).filter(v => !isNaN(v));
+      const percentile = calculatePercentile(parseFloat(value), leagueValues, stat.higherBetter);
+      return { ...stat, value, percentile };
+    }).filter(s => s.percentile !== null);
+
+    const sorted = [...withPercentiles].sort((a, b) => b.percentile - a.percentile);
+    return {
+      strengths: sorted.slice(0, 3),
+      weaknesses: sorted.slice(-3).reverse(),
+    };
+  }, [statConfig, enhancedPlayerStats, leagueStats]);
 
   // Season awards for selected year
   const seasonAwards = useMemo(() => {
@@ -363,6 +381,69 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
                     </span>
                   </div>
                 </div>
+
+                {/* At a Glance — Strengths & Weaknesses */}
+                {strengths.length > 0 && (
+                  <div className="mb-6 p-4 bg-bg-tertiary/50 rounded-xl border border-border-light">
+                    <h3 className="text-xs font-semibold text-text-muted tracking-[0.15em] mb-3">AT A GLANCE</h3>
+                    <div className="flex flex-col gap-2.5">
+                      {/* Strengths */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-text-muted text-xs font-medium w-10 shrink-0">Best</span>
+                        {strengths.map(s => {
+                          const color = getPercentileColor(s.percentile);
+                          const desc = getStatDescription(s.key);
+                          return (
+                            <div key={s.key} className="relative group/chip">
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold cursor-help"
+                                style={{
+                                  backgroundColor: `${color}20`,
+                                  color: color,
+                                  border: `1px solid ${color}40`,
+                                }}
+                              >
+                                {s.label} {s.percentile}%
+                              </span>
+                              {desc && (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-bg-elevated border border-border rounded-lg shadow-lg text-xs text-text-primary font-normal whitespace-nowrap opacity-0 group-hover/chip:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                  {desc} — {formatStatValue(s.value, s.key)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Weaknesses */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-text-muted text-xs font-medium w-10 shrink-0">Worst</span>
+                        {weaknesses.map(s => {
+                          const color = getPercentileColor(s.percentile);
+                          const desc = getStatDescription(s.key);
+                          return (
+                            <div key={s.key} className="relative group/chip">
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold cursor-help"
+                                style={{
+                                  backgroundColor: `${color}20`,
+                                  color: color,
+                                  border: `1px solid ${color}40`,
+                                }}
+                              >
+                                {s.label} {s.percentile}%
+                              </span>
+                              {desc && (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-bg-elevated border border-border rounded-lg shadow-lg text-xs text-text-primary font-normal whitespace-nowrap opacity-0 group-hover/chip:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                  {desc} — {formatStatValue(s.value, s.key)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Stat Categories */}
                 <div className="space-y-1 stagger-children">

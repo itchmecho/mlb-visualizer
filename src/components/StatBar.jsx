@@ -1,11 +1,11 @@
 // StatBar component - Individual stat row with colored bar
-// v1.4.0 | 2026-02-06
+// v1.5.0 | 2026-02-11
 
 import React from 'react';
 import { getPercentileColor } from '../utils/percentile';
 import { getStatDescription } from '../utils/statDescriptions';
 
-const StatBar = ({ label, value, percentile, statKey }) => {
+const StatBar = ({ label, value, percentile, statKey, leagueMedian }) => {
   const color = getPercentileColor(percentile);
   const barWidth = Math.max(percentile || 0, 5);
   const tooltip = getStatDescription(statKey);
@@ -47,6 +47,16 @@ const StatBar = ({ label, value, percentile, statKey }) => {
           >
             {value}
           </span>
+        )}
+
+        {/* League average tick mark at 50% */}
+        {leagueMedian && (
+          <div className="absolute top-0 left-1/2 w-px h-full group/median z-10">
+            <div className="w-px h-full border-l border-dashed border-text-muted/30" />
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-bg-elevated border border-border rounded text-[10px] text-text-muted font-medium whitespace-nowrap opacity-0 group-hover/median:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+              Avg: {leagueMedian}
+            </div>
+          </div>
         )}
       </div>
 

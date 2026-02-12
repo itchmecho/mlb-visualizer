@@ -1,47 +1,16 @@
 // StatCategory component - Group of related stats
-// v1.3.0 | 2026-02-06
+// v1.4.0 | 2026-02-11
 
 import React from 'react';
 import StatBar from './StatBar';
-import { calculatePercentile } from '../utils/percentile';
-
-// Format stat value for display
-const formatStatValue = (value, statKey) => {
-  if (value === undefined || value === null) return '-';
-
-  const decimalStats = [
-    'avg', 'obp', 'slg', 'ops', 'era', 'whip', 'iso', 'babip',
-    'strikeoutsPer9Inn', 'walksPer9Inn', 'homeRunsPer9', 'hitsPer9Inn',
-    'strikeoutWalkRatio', 'walkRate', 'strikeoutRate'
-  ];
-
-  if (decimalStats.includes(statKey)) {
-    const num = parseFloat(value);
-    if (isNaN(num)) return '-';
-
-    // Batting average style stats (show .XXX)
-    if (['avg', 'obp', 'slg', 'iso', 'babip'].includes(statKey)) {
-      return num.toFixed(3).replace(/^0/, '');
-    }
-    // OPS can be over 1.000
-    if (statKey === 'ops') {
-      return num.toFixed(3);
-    }
-    // Percentage stats (BB%, K%)
-    if (['walkRate', 'strikeoutRate'].includes(statKey)) {
-      return `${num.toFixed(1)}%`;
-    }
-    return num.toFixed(2);
-  }
-
-  return value.toString();
-};
+import { calculatePercentile, calculateMedian } from '../utils/percentile';
+import { formatStatValue } from '../utils/formatStats';
 
 const StatCategory = ({ title, stats, playerStats, leagueStats }) => {
   return (
     <div className="mb-5">
       {/* Category Header */}
-      <h3 className="text-xs font-bold text-text-muted tracking-[0.2em] mb-3 pb-2 border-b border-border-light">
+      <h3 className="text-xs font-semibold text-text-secondary tracking-[0.15em] pl-3 py-1 border-l-2 border-accent/60 mb-3">
         {title}
       </h3>
 
@@ -51,6 +20,8 @@ const StatCategory = ({ title, stats, playerStats, leagueStats }) => {
           const value = playerStats?.[stat.key];
           const leagueValues = leagueStats?.map(p => parseFloat(p[stat.key])).filter(v => !isNaN(v)) || [];
           const percentile = calculatePercentile(parseFloat(value), leagueValues, stat.higherBetter);
+          const median = calculateMedian(leagueValues);
+          const leagueMedian = median !== null ? formatStatValue(median, stat.key) : null;
 
           return (
             <StatBar
@@ -59,6 +30,7 @@ const StatCategory = ({ title, stats, playerStats, leagueStats }) => {
               statKey={stat.key}
               value={formatStatValue(value, stat.key)}
               percentile={percentile}
+              leagueMedian={leagueMedian}
             />
           );
         })}
