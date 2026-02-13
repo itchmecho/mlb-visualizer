@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.6.0 | 2026-02-11
+// v4.6.1 | 2026-02-12
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
