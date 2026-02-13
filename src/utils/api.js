@@ -892,6 +892,9 @@ export const fetchTransactions = async (season, signal, offset = 0, limit = 50) 
       return true;
     });
 
+    // Sort newest first (API returns oldest first)
+    filtered.sort((a, b) => (b.date || b.effectiveDate || '').localeCompare(a.date || a.effectiveDate || ''));
+
     const result = { transactions: filtered, hasMore: raw.length >= fetchLimit };
 
     if (filtered.length > 0) {

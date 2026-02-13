@@ -159,7 +159,9 @@ export default function Transactions({ season, onPlayerClick }) {
   const [error, setError] = useState(null);
 
   const offsetRef = useRef(0);
-  const sentinelRef = useRef(null);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
+  const observerRef = useRef(null);
 
   // Filter helper
   const applyFilter = useCallback((txns, filterKey) => {
@@ -175,6 +177,7 @@ export default function Transactions({ season, onPlayerClick }) {
     setTransactions([]);
     setLoading(true);
     setHasMore(true);
+    hasMoreRef.current = true;
     setError(null);
     offsetRef.current = 0;
 
@@ -184,6 +187,7 @@ export default function Transactions({ season, onPlayerClick }) {
         const filtered = applyFilter(result.transactions, filter);
         setTransactions(filtered);
         setHasMore(result.hasMore);
+        hasMoreRef.current = result.hasMore;
         offsetRef.current = result.transactions.length;
       } catch (err) {
         if (err.name !== 'AbortError') {
@@ -199,9 +203,10 @@ export default function Transactions({ season, onPlayerClick }) {
     return () => controller.abort();
   }, [season, filter, applyFilter]);
 
-  // Load more (infinite scroll)
+  // Load more — uses refs to avoid recreating the callback
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMoreRef.current || !hasMoreRef.current) return;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
 
     try {
@@ -209,30 +214,33 @@ export default function Transactions({ season, onPlayerClick }) {
       const filtered = applyFilter(result.transactions, filter);
       setTransactions(prev => [...prev, ...filtered]);
       setHasMore(result.hasMore);
+      hasMoreRef.current = result.hasMore;
       offsetRef.current += result.transactions.length;
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error('Load more error:', err);
       }
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [season, filter, loadingMore, hasMore, applyFilter]);
+  }, [season, filter, applyFilter]);
 
-  // IntersectionObserver for infinite scroll
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+  // Sentinel ref callback — attaches IntersectionObserver when sentinel mounts
+  const sentinelRef = useCallback((node) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (!node) return;
 
-    const observer = new IntersectionObserver(
+    observerRef.current = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) loadMore();
       },
-      { rootMargin: '200px' }
+      { rootMargin: '400px' }
     );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
+    observerRef.current.observe(node);
   }, [loadMore]);
 
   const dateGroups = groupByDate(transactions);
