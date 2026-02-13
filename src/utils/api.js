@@ -784,8 +784,11 @@ export const fetchTeamRoster = async (teamId, season, signal, rosterType = 'full
   }
 
   try {
+    // For 40Man (current roster), omit season param so the API returns the truly current 40-man
+    // (season param locks it to that year's roster, missing offseason moves)
+    const seasonParam = rosterType === '40Man' ? '' : `season=${season}&`;
     const response = await fetch(
-      `${MLB_API_BASE}/teams/${teamId}/roster?season=${season}&rosterType=${rosterType}&hydrate=person(stats(type=season,season=${season},gameType=R))`,
+      `${MLB_API_BASE}/teams/${teamId}/roster?${seasonParam}rosterType=${rosterType}&hydrate=person(stats(type=season,season=${season},gameType=R))`,
       { signal }
     );
     const data = await response.json();
