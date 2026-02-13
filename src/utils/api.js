@@ -1,5 +1,5 @@
 // MLB Stats API utilities
-// v2.4.0 | 2026-02-10
+// v2.5.0 | 2026-02-12
 
 const MLB_API_BASE = 'https://statsapi.mlb.com/api/v1';
 
@@ -39,6 +39,23 @@ class TtlCache {
 
 // Cache for league stats (key: "season-group", value: stats array)
 const leagueStatsCache = new TtlCache(TTL_LONG);
+
+// Cache for transactions (key: "season-offset", value: result object)
+const transactionsCache = new TtlCache(TTL_SHORT);
+
+// MLB-level transaction type codes to keep (filter out minor league noise)
+const MLB_TYPE_CODES = new Set([
+  'TR',   // Trade
+  'SGN',  // Signed
+  'SFA',  // Signed as Free Agent
+  'DES',  // Designated for Assignment
+  'CLW',  // Claimed Off Waivers
+  'REL',  // Released
+  'RET',  // Retired
+  'OPT',  // Optioned
+  'CU',   // Recalled
+  'SC',   // Status Change (filtered further — IL only)
+]);
 
 /**
  * Calculate derived hitting stats (extraBaseHits, totalBases, iso)
@@ -835,5 +852,56 @@ export const fetchTopPlayerNames = async (season, signal) => {
     if (error.name === 'AbortError') return [];
     console.error('Top player names error:', error);
     return [];
+  }
+};
+
+/**
+ * Fetch MLB-level transactions for a season
+ * @param {number} season - Season year
+ * @param {AbortSignal} signal - Optional abort signal
+ * @param {number} offset - Pagination offset (default 0)
+ * @param {number} limit - Results per page (default 50)
+ * @returns {Promise<{transactions: Array, hasMore: boolean}>}
+ */
+export const fetchTransactions = async (season, signal, offset = 0, limit = 50) => {
+  // We need to over-fetch because we filter client-side
+  // Request 5x the limit to ensure we get enough MLB-level transactions after filtering
+  const fetchLimit = limit * 5;
+  const cacheKey = `${season}-${offset}`;
+
+  if (transactionsCache.has(cacheKey)) {
+    return transactionsCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `${MLB_API_BASE}/transactions?startDate=01/01/${season}&endDate=12/31/${season}&limit=${fetchLimit}&offset=${offset}`,
+      { signal }
+    );
+    const data = await response.json();
+    const raw = data.transactions || [];
+
+    // Filter to MLB-level moves only
+    const filtered = raw.filter(t => {
+      if (!t.typeCode || !MLB_TYPE_CODES.has(t.typeCode)) return false;
+      // For Status Changes, only keep IL-related ones
+      if (t.typeCode === 'SC') {
+        const desc = (t.description || '').toLowerCase();
+        return desc.includes('injured list') || desc.includes('disabled list');
+      }
+      return true;
+    });
+
+    const result = { transactions: filtered, hasMore: raw.length >= fetchLimit };
+
+    if (filtered.length > 0) {
+      transactionsCache.set(cacheKey, result);
+    }
+
+    return result;
+  } catch (error) {
+    if (error.name === 'AbortError') return { transactions: [], hasMore: false };
+    console.error('Transactions error:', error);
+    throw error;
   }
 };

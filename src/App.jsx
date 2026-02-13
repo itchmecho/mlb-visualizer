@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.7.1 | 2026-02-12
+// v4.8.0 | 2026-02-12
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -10,8 +10,9 @@ import TeamCard from './components/TeamCard';
 import Leaders from './components/Leaders';
 import Scoreboard from './components/Scoreboard';
 import PlayoffBracket from './components/PlayoffBracket';
+import Transactions from './components/Transactions';
 import { PlayerCardSkeleton, StandingsSkeleton, TeamCardSkeleton } from './components/Skeleton';
-import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats, fetchPlayerAwards, fetchTopPlayerNames } from './utils/api';
+import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats, fetchPlayerAwards, fetchTopPlayerNames, fetchTransactions } from './utils/api';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
 import { version as APP_VERSION } from '../package.json';
 
@@ -67,6 +68,7 @@ const NAV_ITEMS = [
   { key: 'teams', label: 'Standings' },
   { key: 'leaders', label: 'Leaders' },
   { key: 'scoreboard', label: 'Scores' },
+  { key: 'transactions', label: 'Transactions' },
   { key: 'bracket', label: 'Playoffs' },
 ];
 
@@ -107,6 +109,7 @@ function App() {
     if (route === 'teams' || route === 'team') return 'teams';
     if (route === 'leaders') return 'leaders';
     if (route === 'scoreboard') return 'scoreboard';
+    if (route === 'transactions') return 'transactions';
     if (route === 'bracket') return 'bracket';
     return 'players';
   });
@@ -324,6 +327,14 @@ function App() {
 
         case 'scoreboard':
           setView('scoreboard');
+          setPlayer1(null); setPlayer2(null);
+          setStats1(null); setStats2(null);
+          setIsComparing(false);
+          setSelectedTeam(null);
+          break;
+
+        case 'transactions':
+          setView('transactions');
           setPlayer1(null); setPlayer2(null);
           setStats1(null); setStats2(null);
           setIsComparing(false);
@@ -664,6 +675,9 @@ function App() {
       case 'scoreboard':
         router.navigate(buildHash('scoreboard', season, latestSeason));
         break;
+      case 'transactions':
+        router.navigate(buildHash('transactions', season, latestSeason));
+        break;
       case 'bracket':
         router.navigate(buildHash('bracket', season, latestSeason));
         break;
@@ -826,6 +840,7 @@ function App() {
   const showLeaders = view === 'leaders';
   const showScoreboard = view === 'scoreboard';
   const showBracket = view === 'bracket';
+  const showTransactions = view === 'transactions';
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary theme-transition">
@@ -1094,6 +1109,11 @@ function App() {
         {/* Playoff Bracket View */}
         {showBracket && (
           <PlayoffBracket season={season} />
+        )}
+
+        {/* Transactions View */}
+        {showTransactions && (
+          <Transactions season={season} onPlayerClick={handleLeaderPlayerClick} />
         )}
 
         {/* Empty State */}
