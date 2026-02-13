@@ -856,54 +856,59 @@ export const fetchTopPlayerNames = async (season, signal) => {
 };
 
 /**
- * Fetch MLB-level transactions for a season
+ * Fetch ALL MLB-level transactions for a season.
+ * Fetches in batches from the API, filters to MLB-level moves, sorts newest first.
+ * Results are cached per season — component handles client-side pagination.
  * @param {number} season - Season year
  * @param {AbortSignal} signal - Optional abort signal
- * @param {number} offset - Pagination offset (default 0)
- * @param {number} limit - Results per page (default 50)
- * @returns {Promise<{transactions: Array, hasMore: boolean}>}
+ * @returns {Promise<Array>} All filtered transactions for the season, newest first
  */
-export const fetchTransactions = async (season, signal, offset = 0, limit = 50) => {
-  // We need to over-fetch because we filter client-side
-  // Request 5x the limit to ensure we get enough MLB-level transactions after filtering
-  const fetchLimit = limit * 5;
-  const cacheKey = `${season}-${offset}`;
+export const fetchTransactions = async (season, signal) => {
+  const cacheKey = `${season}`;
 
   if (transactionsCache.has(cacheKey)) {
     return transactionsCache.get(cacheKey);
   }
 
+  const allFiltered = [];
+  let offset = 0;
+  const batchSize = 1000;
+
   try {
-    const response = await fetch(
-      `${MLB_API_BASE}/transactions?startDate=01/01/${season}&endDate=12/31/${season}&limit=${fetchLimit}&offset=${offset}`,
-      { signal }
-    );
-    const data = await response.json();
-    const raw = data.transactions || [];
+    // Fetch all transactions in batches
+    while (true) {
+      const response = await fetch(
+        `${MLB_API_BASE}/transactions?startDate=01/01/${season}&endDate=12/31/${season}&limit=${batchSize}&offset=${offset}`,
+        { signal }
+      );
+      const data = await response.json();
+      const raw = data.transactions || [];
 
-    // Filter to MLB-level moves only
-    const filtered = raw.filter(t => {
-      if (!t.typeCode || !MLB_TYPE_CODES.has(t.typeCode)) return false;
-      // For Status Changes, only keep IL-related ones
-      if (t.typeCode === 'SC') {
-        const desc = (t.description || '').toLowerCase();
-        return desc.includes('injured list') || desc.includes('disabled list');
+      // Filter to MLB-level moves only
+      for (const t of raw) {
+        if (!t.typeCode || !MLB_TYPE_CODES.has(t.typeCode)) continue;
+        if (t.typeCode === 'SC') {
+          const desc = (t.description || '').toLowerCase();
+          if (!desc.includes('injured list') && !desc.includes('disabled list')) continue;
+        }
+        allFiltered.push(t);
       }
-      return true;
-    });
 
-    // Sort newest first (API returns oldest first)
-    filtered.sort((a, b) => (b.date || b.effectiveDate || '').localeCompare(a.date || a.effectiveDate || ''));
-
-    const result = { transactions: filtered, hasMore: raw.length >= fetchLimit, rawCount: raw.length };
-
-    if (filtered.length > 0) {
-      transactionsCache.set(cacheKey, result);
+      // Stop if we got fewer than requested (no more data)
+      if (raw.length < batchSize) break;
+      offset += batchSize;
     }
 
-    return result;
+    // Sort newest first
+    allFiltered.sort((a, b) => (b.date || b.effectiveDate || '').localeCompare(a.date || a.effectiveDate || ''));
+
+    if (allFiltered.length > 0) {
+      transactionsCache.set(cacheKey, allFiltered);
+    }
+
+    return allFiltered;
   } catch (error) {
-    if (error.name === 'AbortError') return { transactions: [], hasMore: false };
+    if (error.name === 'AbortError') return [];
     console.error('Transactions error:', error);
     throw error;
   }

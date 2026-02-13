@@ -1,7 +1,7 @@
 // Transactions Feed
 // v1.0.0 | 2026-02-12
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { fetchTransactions } from '../utils/api';
 import { getTeamLogoUrl } from '../utils/teamData';
 
@@ -150,45 +150,29 @@ const TransactionsSkeleton = () => (
   </div>
 );
 
+const PAGE_SIZE = 50;
+
 export default function Transactions({ season, onPlayerClick }) {
-  const [transactions, setTransactions] = useState([]);
+  const [allTransactions, setAllTransactions] = useState([]); // Full filtered+sorted list
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const offsetRef = useRef(0);
-  const loadingMoreRef = useRef(false);
-  const hasMoreRef = useRef(true);
   const observerRef = useRef(null);
 
-  // Filter helper
-  const applyFilter = useCallback((txns, filterKey) => {
-    if (filterKey === 'all') return txns;
-    const filterDef = TYPE_FILTERS.find(f => f.key === filterKey);
-    if (!filterDef?.codes) return txns;
-    return txns.filter(t => filterDef.codes.includes(t.typeCode));
-  }, []);
-
-  // Reset and load when season or filter changes
+  // Fetch all transactions when season changes
   useEffect(() => {
     const controller = new AbortController();
-    setTransactions([]);
+    setAllTransactions([]);
     setLoading(true);
-    setHasMore(true);
-    hasMoreRef.current = true;
     setError(null);
-    offsetRef.current = 0;
+    setVisibleCount(PAGE_SIZE);
 
     const load = async () => {
       try {
-        const result = await fetchTransactions(season, controller.signal, 0);
-        const filtered = applyFilter(result.transactions, filter);
-        setTransactions(filtered);
-        setHasMore(result.hasMore);
-        hasMoreRef.current = result.hasMore;
-        offsetRef.current = result.rawCount;
+        const result = await fetchTransactions(season, controller.signal);
+        setAllTransactions(result);
       } catch (err) {
         if (err.name !== 'AbortError') {
           setError('Failed to load transactions');
@@ -201,30 +185,28 @@ export default function Transactions({ season, onPlayerClick }) {
 
     load();
     return () => controller.abort();
-  }, [season, filter, applyFilter]);
+  }, [season]);
 
-  // Load more — uses refs to avoid recreating the callback
-  const loadMore = useCallback(async () => {
-    if (loadingMoreRef.current || !hasMoreRef.current) return;
-    loadingMoreRef.current = true;
-    setLoadingMore(true);
+  // Apply filter + slice to visible count
+  const filtered = useMemo(() => {
+    if (filter === 'all') return allTransactions;
+    const filterDef = TYPE_FILTERS.find(f => f.key === filter);
+    if (!filterDef?.codes) return allTransactions;
+    return allTransactions.filter(t => filterDef.codes.includes(t.typeCode));
+  }, [allTransactions, filter]);
 
-    try {
-      const result = await fetchTransactions(season, undefined, offsetRef.current);
-      const filtered = applyFilter(result.transactions, filter);
-      setTransactions(prev => [...prev, ...filtered]);
-      setHasMore(result.hasMore);
-      hasMoreRef.current = result.hasMore;
-      offsetRef.current += result.rawCount;
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Load more error:', err);
-      }
-    } finally {
-      loadingMoreRef.current = false;
-      setLoadingMore(false);
-    }
-  }, [season, filter, applyFilter]);
+  const visible = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+
+  // Reset visible count when filter changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filter]);
+
+  // Show more — just bump the visible count
+  const showMore = useCallback(() => {
+    setVisibleCount(prev => prev + PAGE_SIZE);
+  }, []);
 
   // Sentinel ref callback — attaches IntersectionObserver when sentinel mounts
   const sentinelRef = useCallback((node) => {
@@ -236,14 +218,14 @@ export default function Transactions({ season, onPlayerClick }) {
 
     observerRef.current = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) loadMore();
+        if (entry.isIntersecting) showMore();
       },
       { rootMargin: '400px' }
     );
     observerRef.current.observe(node);
-  }, [loadMore]);
+  }, [showMore]);
 
-  const dateGroups = groupByDate(transactions);
+  const dateGroups = groupByDate(visible);
 
   return (
     <div className="animate-fade-in">
@@ -304,15 +286,13 @@ export default function Transactions({ season, onPlayerClick }) {
       {/* Infinite scroll sentinel */}
       {hasMore && !loading && (
         <div ref={sentinelRef} className="py-8 flex justify-center">
-          {loadingMore && (
-            <div className="flex items-center gap-2 text-text-muted text-sm">
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading more...
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-text-muted text-sm">
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Loading more...
+          </div>
         </div>
       )}
     </div>
