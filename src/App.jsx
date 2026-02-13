@@ -780,8 +780,12 @@ function App() {
     setTeamRoster(null);
     setPlayer2(null); setStats2(null);
     setIsComparing(false);
-    router.navigate(buildHash(`player/${person.id}`, season, latestSeason));
-    await fetchPlayerDataInternal(person, season, 'player1');
+
+    // Roster API doesn't hydrate currentTeam — fetch full player object
+    const fullPlayer = await fetchPlayerById(person.id);
+    const playerObj = fullPlayer || person;
+    router.navigate(buildHash(`player/${playerObj.id}`, season, latestSeason));
+    await fetchPlayerDataInternal(playerObj, season, 'player1');
   };
 
   // Handle clicking a player from Leaders page
