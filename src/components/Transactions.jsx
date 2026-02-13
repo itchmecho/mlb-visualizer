@@ -188,7 +188,7 @@ export default function Transactions({ season, onPlayerClick }) {
         setTransactions(filtered);
         setHasMore(result.hasMore);
         hasMoreRef.current = result.hasMore;
-        offsetRef.current = result.transactions.length;
+        offsetRef.current = result.rawCount;
       } catch (err) {
         if (err.name !== 'AbortError') {
           setError('Failed to load transactions');
@@ -215,7 +215,7 @@ export default function Transactions({ season, onPlayerClick }) {
       setTransactions(prev => [...prev, ...filtered]);
       setHasMore(result.hasMore);
       hasMoreRef.current = result.hasMore;
-      offsetRef.current += result.transactions.length;
+      offsetRef.current += result.rawCount;
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error('Load more error:', err);

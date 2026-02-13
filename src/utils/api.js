@@ -895,7 +895,7 @@ export const fetchTransactions = async (season, signal, offset = 0, limit = 50) 
     // Sort newest first (API returns oldest first)
     filtered.sort((a, b) => (b.date || b.effectiveDate || '').localeCompare(a.date || a.effectiveDate || ''));
 
-    const result = { transactions: filtered, hasMore: raw.length >= fetchLimit };
+    const result = { transactions: filtered, hasMore: raw.length >= fetchLimit, rawCount: raw.length };
 
     if (filtered.length > 0) {
       transactionsCache.set(cacheKey, result);
