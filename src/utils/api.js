@@ -855,61 +855,61 @@ export const fetchTopPlayerNames = async (season, signal) => {
   }
 };
 
+// Quarterly date ranges for a season (newest first)
+const getSeasonQuarters = (season) => [
+  { start: `10/01/${season}`, end: `12/31/${season}` }, // Q4: Oct-Dec
+  { start: `07/01/${season}`, end: `09/30/${season}` }, // Q3: Jul-Sep
+  { start: `04/01/${season}`, end: `06/30/${season}` }, // Q2: Apr-Jun
+  { start: `01/01/${season}`, end: `03/31/${season}` }, // Q1: Jan-Mar
+];
+
+const filterToMlbLevel = (raw) => raw.filter(t => {
+  if (!t.typeCode || !MLB_TYPE_CODES.has(t.typeCode)) return false;
+  if (t.typeCode === 'SC') {
+    const desc = (t.description || '').toLowerCase();
+    return desc.includes('injured list') || desc.includes('disabled list');
+  }
+  return true;
+});
+
 /**
- * Fetch ALL MLB-level transactions for a season.
- * Fetches in batches from the API, filters to MLB-level moves, sorts newest first.
- * Results are cached per season — component handles client-side pagination.
+ * Fetch MLB-level transactions for a quarter of a season.
  * @param {number} season - Season year
+ * @param {number} quarterIndex - 0=Q4(Oct-Dec), 1=Q3, 2=Q2, 3=Q1
  * @param {AbortSignal} signal - Optional abort signal
- * @returns {Promise<Array>} All filtered transactions for the season, newest first
+ * @returns {Promise<Array>} Filtered transactions for the quarter, newest first
  */
-export const fetchTransactions = async (season, signal) => {
-  const cacheKey = `${season}`;
+export const fetchTransactions = async (season, quarterIndex, signal) => {
+  const cacheKey = `${season}-q${quarterIndex}`;
 
   if (transactionsCache.has(cacheKey)) {
     return transactionsCache.get(cacheKey);
   }
 
-  const allFiltered = [];
-  let offset = 0;
-  const batchSize = 1000;
+  const quarters = getSeasonQuarters(season);
+  if (quarterIndex < 0 || quarterIndex >= quarters.length) return [];
+  const { start, end } = quarters[quarterIndex];
 
   try {
-    // Fetch all transactions in batches
-    while (true) {
-      const response = await fetch(
-        `${MLB_API_BASE}/transactions?startDate=01/01/${season}&endDate=12/31/${season}&limit=${batchSize}&offset=${offset}`,
-        { signal }
-      );
-      const data = await response.json();
-      const raw = data.transactions || [];
-
-      // Filter to MLB-level moves only
-      for (const t of raw) {
-        if (!t.typeCode || !MLB_TYPE_CODES.has(t.typeCode)) continue;
-        if (t.typeCode === 'SC') {
-          const desc = (t.description || '').toLowerCase();
-          if (!desc.includes('injured list') && !desc.includes('disabled list')) continue;
-        }
-        allFiltered.push(t);
-      }
-
-      // Stop if we got fewer than requested (no more data)
-      if (raw.length < batchSize) break;
-      offset += batchSize;
-    }
+    const response = await fetch(
+      `${MLB_API_BASE}/transactions?startDate=${start}&endDate=${end}&limit=5000`,
+      { signal }
+    );
+    const data = await response.json();
+    const raw = data.transactions || [];
+    const filtered = filterToMlbLevel(raw);
 
     // Sort newest first
-    allFiltered.sort((a, b) => (b.date || b.effectiveDate || '').localeCompare(a.date || a.effectiveDate || ''));
+    filtered.sort((a, b) => (b.date || b.effectiveDate || '').localeCompare(a.date || a.effectiveDate || ''));
 
-    if (allFiltered.length > 0) {
-      transactionsCache.set(cacheKey, allFiltered);
-    }
-
-    return allFiltered;
+    transactionsCache.set(cacheKey, filtered);
+    return filtered;
   } catch (error) {
     if (error.name === 'AbortError') return [];
     console.error('Transactions error:', error);
     throw error;
   }
 };
+
+/** Total number of quarters available per season */
+export const TRANSACTIONS_QUARTER_COUNT = 4;

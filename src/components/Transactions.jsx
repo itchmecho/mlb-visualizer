@@ -2,7 +2,7 @@
 // v1.0.0 | 2026-02-12
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { fetchTransactions } from '../utils/api';
+import { fetchTransactions, TRANSACTIONS_QUARTER_COUNT } from '../utils/api';
 import { getTeamLogoUrl } from '../utils/teamData';
 
 // Filter categories mapping typeCode → display group
@@ -150,29 +150,30 @@ const TransactionsSkeleton = () => (
   </div>
 );
 
-const PAGE_SIZE = 50;
-
 export default function Transactions({ season, onPlayerClick }) {
-  const [allTransactions, setAllTransactions] = useState([]); // Full filtered+sorted list
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState(null);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  const quarterRef = useRef(0); // Which quarter to load next (0=Q4, 1=Q3, etc.)
   const observerRef = useRef(null);
+  const loadingRef = useRef(false);
 
-  // Fetch all transactions when season changes
+  // Load initial quarter when season changes
   useEffect(() => {
     const controller = new AbortController();
-    setAllTransactions([]);
+    setTransactions([]);
     setLoading(true);
     setError(null);
-    setVisibleCount(PAGE_SIZE);
+    quarterRef.current = 0;
 
     const load = async () => {
       try {
-        const result = await fetchTransactions(season, controller.signal);
-        setAllTransactions(result);
+        const result = await fetchTransactions(season, 0, controller.signal);
+        setTransactions(result);
+        quarterRef.current = 1;
       } catch (err) {
         if (err.name !== 'AbortError') {
           setError('Failed to load transactions');
@@ -187,26 +188,35 @@ export default function Transactions({ season, onPlayerClick }) {
     return () => controller.abort();
   }, [season]);
 
-  // Apply filter + slice to visible count
+  // Apply type filter
   const filtered = useMemo(() => {
-    if (filter === 'all') return allTransactions;
+    if (filter === 'all') return transactions;
     const filterDef = TYPE_FILTERS.find(f => f.key === filter);
-    if (!filterDef?.codes) return allTransactions;
-    return allTransactions.filter(t => filterDef.codes.includes(t.typeCode));
-  }, [allTransactions, filter]);
+    if (!filterDef?.codes) return transactions;
+    return transactions.filter(t => filterDef.codes.includes(t.typeCode));
+  }, [transactions, filter]);
 
-  const visible = filtered.slice(0, visibleCount);
-  const hasMore = visibleCount < filtered.length;
+  const hasMore = quarterRef.current < TRANSACTIONS_QUARTER_COUNT;
 
-  // Reset visible count when filter changes
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [filter]);
+  // Load next quarter
+  const loadMore = useCallback(async () => {
+    if (loadingRef.current || quarterRef.current >= TRANSACTIONS_QUARTER_COUNT) return;
+    loadingRef.current = true;
+    setLoadingMore(true);
 
-  // Show more — just bump the visible count
-  const showMore = useCallback(() => {
-    setVisibleCount(prev => prev + PAGE_SIZE);
-  }, []);
+    try {
+      const result = await fetchTransactions(season, quarterRef.current);
+      setTransactions(prev => [...prev, ...result]);
+      quarterRef.current += 1;
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Load more error:', err);
+      }
+    } finally {
+      loadingRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [season]);
 
   // Sentinel ref callback — attaches IntersectionObserver when sentinel mounts
   const sentinelRef = useCallback((node) => {
@@ -218,14 +228,14 @@ export default function Transactions({ season, onPlayerClick }) {
 
     observerRef.current = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) showMore();
+        if (entry.isIntersecting) loadMore();
       },
       { rootMargin: '400px' }
     );
     observerRef.current.observe(node);
-  }, [showMore]);
+  }, [loadMore]);
 
-  const dateGroups = groupByDate(visible);
+  const dateGroups = groupByDate(filtered);
 
   return (
     <div className="animate-fade-in">
@@ -286,13 +296,15 @@ export default function Transactions({ season, onPlayerClick }) {
       {/* Infinite scroll sentinel */}
       {hasMore && !loading && (
         <div ref={sentinelRef} className="py-8 flex justify-center">
-          <div className="flex items-center gap-2 text-text-muted text-sm">
-            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Loading more...
-          </div>
+          {loadingMore && (
+            <div className="flex items-center gap-2 text-text-muted text-sm">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Loading more...
+            </div>
+          )}
         </div>
       )}
     </div>
