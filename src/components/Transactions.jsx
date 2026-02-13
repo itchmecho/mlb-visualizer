@@ -1,17 +1,29 @@
 // Transactions Feed
-// v1.0.0 | 2026-02-12
+// v2.0.0 | 2026-02-13
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { fetchTransactions, TRANSACTIONS_QUARTER_COUNT } from '../utils/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { fetchTransactions } from '../utils/api';
 import { getTeamLogoUrl } from '../utils/teamData';
 
-// Filter categories mapping typeCode → display group
+// Type filter categories
 const TYPE_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'trades', label: 'Trades', codes: ['TR'] },
   { key: 'signings', label: 'Signings', codes: ['SGN', 'SFA'] },
   { key: 'dfa', label: 'DFA / Waivers', codes: ['DES', 'CLW', 'REL'] },
   { key: 'roster', label: 'Roster Moves', codes: ['OPT', 'CU', 'SC', 'RET'] },
+];
+
+// Date mode options
+const DATE_MODES = [
+  { key: 'month', label: 'Month' },
+  { key: 'day', label: 'Day' },
+  { key: 'range', label: 'Date Range' },
+];
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 // Badge config per typeCode
@@ -29,9 +41,38 @@ const BADGE_CONFIG = {
 };
 
 // Format date as "January 15, 2024"
-const formatDate = (dateStr) => {
+const formatDateDisplay = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+};
+
+// Convert YYYY-MM-DD to MM/DD/YYYY for the API
+const toApiDate = (isoDate) => {
+  const [y, m, d] = isoDate.split('-');
+  return `${m}/${d}/${y}`;
+};
+
+// Get last day of a month
+const lastDayOfMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+
+// Get the API date range based on current mode and selections
+const getDateRange = (mode, season, month, day, rangeStart, rangeEnd) => {
+  switch (mode) {
+    case 'day':
+      return { start: toApiDate(day), end: toApiDate(day) };
+    case 'month': {
+      const m = String(month + 1).padStart(2, '0');
+      const lastDay = lastDayOfMonth(season, month);
+      return {
+        start: `${m}/01/${season}`,
+        end: `${m}/${String(lastDay).padStart(2, '0')}/${season}`,
+      };
+    }
+    case 'range':
+      return { start: toApiDate(rangeStart), end: toApiDate(rangeEnd) };
+    default:
+      return { start: `01/01/${season}`, end: `12/31/${season}` };
+  }
 };
 
 // Group transactions by date
@@ -58,7 +99,6 @@ const TransactionDescription = ({ transaction, onPlayerClick }) => {
   const { description, person } = transaction;
   if (!description) return null;
 
-  // If we have a person, make their name clickable in the description
   if (person?.fullName && description.includes(person.fullName)) {
     const idx = description.indexOf(person.fullName);
     const before = description.slice(0, idx);
@@ -89,40 +129,25 @@ const TransactionRow = ({ transaction, onPlayerClick }) => {
 
   return (
     <div className="flex items-start gap-3 py-3 px-4 hover:bg-bg-elevated/50 transition-colors rounded-lg">
-      {/* Team logo(s) */}
       <div className="flex items-center gap-1 shrink-0 pt-0.5">
         {fromTeamId && (
           <>
-            <img
-              src={getTeamLogoUrl(fromTeamId)}
-              alt=""
-              className="w-6 h-6 object-contain"
-              loading="lazy"
-            />
+            <img src={getTeamLogoUrl(fromTeamId)} alt="" className="w-6 h-6 object-contain" loading="lazy" />
             <svg className="w-3 h-3 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </>
         )}
         {toTeamId && (
-          <img
-            src={getTeamLogoUrl(toTeamId)}
-            alt=""
-            className="w-6 h-6 object-contain"
-            loading="lazy"
-          />
+          <img src={getTeamLogoUrl(toTeamId)} alt="" className="w-6 h-6 object-contain" loading="lazy" />
         )}
-        {!toTeamId && !fromTeamId && (
-          <div className="w-6 h-6" />
-        )}
+        {!toTeamId && !fromTeamId && <div className="w-6 h-6" />}
       </div>
 
-      {/* Badge */}
       <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${badge.color}`}>
         {badge.label}
       </span>
 
-      {/* Description */}
       <div className="flex-1 min-w-0">
         <TransactionDescription transaction={transaction} onPlayerClick={onPlayerClick} />
       </div>
@@ -150,30 +175,57 @@ const TransactionsSkeleton = () => (
   </div>
 );
 
+// Shared input classes
+const inputClass = 'px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition';
+
 export default function Transactions({ season, onPlayerClick }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [error, setError] = useState(null);
 
-  const quarterRef = useRef(0); // Which quarter to load next (0=Q4, 1=Q3, etc.)
-  const observerRef = useRef(null);
-  const loadingRef = useRef(false);
+  // Date selection state
+  const [dateMode, setDateMode] = useState('month');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    // Default to current month if current season, otherwise December
+    return now.getFullYear() === season ? now.getMonth() : 11;
+  });
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const now = new Date();
+    return `${season}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [rangeStart, setRangeStart] = useState(`${season}-01-01`);
+  const [rangeEnd, setRangeEnd] = useState(`${season}-03-31`);
 
-  // Load initial quarter when season changes
+  // Reset date selections when season changes
+  useEffect(() => {
+    const now = new Date();
+    const isCurrentSeason = now.getFullYear() === season || (now.getMonth() < 3 && season === now.getFullYear() - 1);
+    if (isCurrentSeason) {
+      setSelectedMonth(now.getMonth());
+      setSelectedDay(`${season}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    } else {
+      setSelectedMonth(11);
+      setSelectedDay(`${season}-12-31`);
+    }
+    setRangeStart(`${season}-01-01`);
+    setRangeEnd(`${season}-03-31`);
+  }, [season]);
+
+  // Fetch transactions when date selection changes
   useEffect(() => {
     const controller = new AbortController();
     setTransactions([]);
     setLoading(true);
     setError(null);
-    quarterRef.current = 0;
+
+    const { start, end } = getDateRange(dateMode, season, selectedMonth, selectedDay, rangeStart, rangeEnd);
 
     const load = async () => {
       try {
-        const result = await fetchTransactions(season, 0, controller.signal);
+        const result = await fetchTransactions(start, end, controller.signal);
         setTransactions(result);
-        quarterRef.current = 1;
       } catch (err) {
         if (err.name !== 'AbortError') {
           setError('Failed to load transactions');
@@ -186,73 +238,109 @@ export default function Transactions({ season, onPlayerClick }) {
 
     load();
     return () => controller.abort();
-  }, [season]);
+  }, [season, dateMode, selectedMonth, selectedDay, rangeStart, rangeEnd]);
 
   // Apply type filter
   const filtered = useMemo(() => {
-    if (filter === 'all') return transactions;
-    const filterDef = TYPE_FILTERS.find(f => f.key === filter);
+    if (typeFilter === 'all') return transactions;
+    const filterDef = TYPE_FILTERS.find(f => f.key === typeFilter);
     if (!filterDef?.codes) return transactions;
     return transactions.filter(t => filterDef.codes.includes(t.typeCode));
-  }, [transactions, filter]);
-
-  const hasMore = quarterRef.current < TRANSACTIONS_QUARTER_COUNT;
-
-  // Load next quarter
-  const loadMore = useCallback(async () => {
-    if (loadingRef.current || quarterRef.current >= TRANSACTIONS_QUARTER_COUNT) return;
-    loadingRef.current = true;
-    setLoadingMore(true);
-
-    try {
-      const result = await fetchTransactions(season, quarterRef.current);
-      setTransactions(prev => [...prev, ...result]);
-      quarterRef.current += 1;
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Load more error:', err);
-      }
-    } finally {
-      loadingRef.current = false;
-      setLoadingMore(false);
-    }
-  }, [season]);
-
-  // Sentinel ref callback — attaches IntersectionObserver when sentinel mounts
-  const sentinelRef = useCallback((node) => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-    if (!node) return;
-
-    observerRef.current = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) loadMore();
-      },
-      { rootMargin: '400px' }
-    );
-    observerRef.current.observe(node);
-  }, [loadMore]);
+  }, [transactions, typeFilter]);
 
   const dateGroups = groupByDate(filtered);
 
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 className="font-display text-3xl tracking-wide text-text-primary">TRANSACTIONS</h2>
 
-        {/* Filter */}
+        {/* Type filter */}
         <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className={inputClass}
         >
           {TYPE_FILTERS.map(f => (
             <option key={f.key} value={f.key}>{f.label}</option>
           ))}
         </select>
+      </div>
+
+      {/* Date controls */}
+      <div className="flex flex-wrap items-end gap-3 mb-6">
+        {/* Date mode toggle */}
+        <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
+          {DATE_MODES.map(mode => (
+            <button
+              key={mode.key}
+              onClick={() => setDateMode(mode.key)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                dateMode === mode.key
+                  ? 'bg-accent text-text-inverse shadow-sm'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Date inputs based on mode */}
+        {dateMode === 'month' && (
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+            className={inputClass}
+          >
+            {MONTHS.map((name, i) => (
+              <option key={i} value={i}>{name}</option>
+            ))}
+          </select>
+        )}
+
+        {dateMode === 'day' && (
+          <input
+            type="date"
+            value={selectedDay}
+            min={`${season}-01-01`}
+            max={`${season}-12-31`}
+            onChange={(e) => setSelectedDay(e.target.value)}
+            className={inputClass}
+          />
+        )}
+
+        {dateMode === 'range' && (
+          <>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={rangeStart}
+                min={`${season}-01-01`}
+                max={rangeEnd}
+                onChange={(e) => setRangeStart(e.target.value)}
+                className={inputClass}
+              />
+              <span className="text-text-muted text-sm">to</span>
+              <input
+                type="date"
+                value={rangeEnd}
+                min={rangeStart}
+                max={`${season}-12-31`}
+                onChange={(e) => setRangeEnd(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Result count */}
+        {!loading && (
+          <span className="text-text-muted text-sm">
+            {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {/* Error */}
@@ -265,24 +353,23 @@ export default function Transactions({ season, onPlayerClick }) {
       {/* Loading skeleton */}
       {loading && <TransactionsSkeleton />}
 
-      {/* Transaction feed */}
+      {/* Empty state */}
       {!loading && !error && dateGroups.length === 0 && (
         <div className="text-center py-16">
           <div className="text-5xl mb-4">📋</div>
-          <p className="text-text-muted text-lg">No transactions found for {season}</p>
+          <p className="text-text-muted text-lg">No transactions found</p>
         </div>
       )}
 
+      {/* Transaction feed */}
       {!loading && dateGroups.length > 0 && (
         <div className="space-y-6">
           {dateGroups.map(group => (
             <div key={group.date}>
-              {/* Date header */}
               <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2 px-1">
-                {formatDate(group.date)}
+                {formatDateDisplay(group.date)}
               </h3>
 
-              {/* Transaction cards for this date */}
               <div className="bg-bg-card border border-border rounded-xl overflow-hidden theme-transition divide-y divide-border/50">
                 {group.items.map(t => (
                   <TransactionRow key={t.id} transaction={t} onPlayerClick={onPlayerClick} />
@@ -290,21 +377,6 @@ export default function Transactions({ season, onPlayerClick }) {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Infinite scroll sentinel */}
-      {hasMore && !loading && (
-        <div ref={sentinelRef} className="py-8 flex justify-center">
-          {loadingMore && (
-            <div className="flex items-center gap-2 text-text-muted text-sm">
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading more...
-            </div>
-          )}
         </div>
       )}
     </div>

@@ -855,14 +855,6 @@ export const fetchTopPlayerNames = async (season, signal) => {
   }
 };
 
-// Quarterly date ranges for a season (newest first)
-const getSeasonQuarters = (season) => [
-  { start: `10/01/${season}`, end: `12/31/${season}` }, // Q4: Oct-Dec
-  { start: `07/01/${season}`, end: `09/30/${season}` }, // Q3: Jul-Sep
-  { start: `04/01/${season}`, end: `06/30/${season}` }, // Q2: Apr-Jun
-  { start: `01/01/${season}`, end: `03/31/${season}` }, // Q1: Jan-Mar
-];
-
 const filterToMlbLevel = (raw) => raw.filter(t => {
   if (!t.typeCode || !MLB_TYPE_CODES.has(t.typeCode)) return false;
   if (t.typeCode === 'SC') {
@@ -873,26 +865,22 @@ const filterToMlbLevel = (raw) => raw.filter(t => {
 });
 
 /**
- * Fetch MLB-level transactions for a quarter of a season.
- * @param {number} season - Season year
- * @param {number} quarterIndex - 0=Q4(Oct-Dec), 1=Q3, 2=Q2, 3=Q1
+ * Fetch MLB-level transactions for a date range.
+ * @param {string} startDate - Start date MM/DD/YYYY
+ * @param {string} endDate - End date MM/DD/YYYY
  * @param {AbortSignal} signal - Optional abort signal
- * @returns {Promise<Array>} Filtered transactions for the quarter, newest first
+ * @returns {Promise<Array>} Filtered transactions, newest first
  */
-export const fetchTransactions = async (season, quarterIndex, signal) => {
-  const cacheKey = `${season}-q${quarterIndex}`;
+export const fetchTransactions = async (startDate, endDate, signal) => {
+  const cacheKey = `${startDate}-${endDate}`;
 
   if (transactionsCache.has(cacheKey)) {
     return transactionsCache.get(cacheKey);
   }
 
-  const quarters = getSeasonQuarters(season);
-  if (quarterIndex < 0 || quarterIndex >= quarters.length) return [];
-  const { start, end } = quarters[quarterIndex];
-
   try {
     const response = await fetch(
-      `${MLB_API_BASE}/transactions?startDate=${start}&endDate=${end}&limit=5000`,
+      `${MLB_API_BASE}/transactions?startDate=${startDate}&endDate=${endDate}&limit=5000`,
       { signal }
     );
     const data = await response.json();
@@ -910,6 +898,3 @@ export const fetchTransactions = async (season, quarterIndex, signal) => {
     throw error;
   }
 };
-
-/** Total number of quarters available per season */
-export const TRANSACTIONS_QUARTER_COUNT = 4;
