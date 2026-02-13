@@ -776,8 +776,8 @@ const teamRosterCache = new TtlCache(TTL_LONG);
  * @param {AbortSignal} signal - Optional abort signal
  * @returns {Promise<Array>} Array of roster entries with player data
  */
-export const fetchTeamRoster = async (teamId, season, signal) => {
-  const cacheKey = `${teamId}-${season}`;
+export const fetchTeamRoster = async (teamId, season, signal, rosterType = 'fullSeason') => {
+  const cacheKey = `${teamId}-${season}-${rosterType}`;
 
   if (teamRosterCache.has(cacheKey)) {
     return teamRosterCache.get(cacheKey);
@@ -785,7 +785,7 @@ export const fetchTeamRoster = async (teamId, season, signal) => {
 
   try {
     const response = await fetch(
-      `${MLB_API_BASE}/teams/${teamId}/roster?season=${season}&rosterType=fullSeason&hydrate=person(stats(type=season,season=${season},gameType=R))`,
+      `${MLB_API_BASE}/teams/${teamId}/roster?season=${season}&rosterType=${rosterType}&hydrate=person(stats(type=season,season=${season},gameType=R))`,
       { signal }
     );
     const data = await response.json();

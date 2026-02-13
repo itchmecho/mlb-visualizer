@@ -725,6 +725,20 @@ function App() {
     }
   };
 
+  const handleRosterTypeChange = async (rosterType) => {
+    const teamId = selectedTeam?.team?.id;
+    if (!teamId) return;
+    setRosterLoading(true);
+    try {
+      const roster = await fetchTeamRoster(teamId, season, undefined, rosterType);
+      setTeamRoster(roster);
+    } catch (err) {
+      console.error('Error loading roster:', err);
+    } finally {
+      setRosterLoading(false);
+    }
+  };
+
   const handleSelectTeam = (team) => {
     const teamId = team.team?.id;
     if (!teamId) return;
@@ -1048,6 +1062,7 @@ function App() {
             <TeamCard
               team={selectedTeam}
               season={season}
+              latestSeason={latestSeason}
               hittingStats={teamHittingStats}
               pitchingStats={teamPitchingStats}
               allTeamHitting={allTeamHitting}
@@ -1056,6 +1071,7 @@ function App() {
               roster={teamRoster}
               rosterLoading={rosterLoading}
               onPlayerClick={handleRosterPlayerClick}
+              onRosterTypeChange={handleRosterTypeChange}
             />
           </div>
         )}

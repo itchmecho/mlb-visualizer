@@ -1,7 +1,7 @@
 // TeamCard component - Team detail card with stats
-// v1.2.0 | 2026-02-09
+// v1.3.0 | 2026-02-12
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import StatCategory from './StatCategory';
 import TeamRoster from './TeamRoster';
 import { getTeamData, getTeamLogoUrl, getTeamMlbUrl, TEAM_DATA } from '../utils/teamData';
@@ -69,10 +69,28 @@ const getTeamNameById = (teamId) => {
   return null;
 };
 
-const TeamCard = ({ team, season, hittingStats, pitchingStats, allTeamHitting, allTeamPitching, onBack, roster, rosterLoading, onPlayerClick }) => {
+const TeamCard = ({ team, season, latestSeason, hittingStats, pitchingStats, allTeamHitting, allTeamPitching, onBack, roster, rosterLoading, onPlayerClick, onRosterTypeChange }) => {
   const teamName = team.team?.name || 'Unknown';
   const teamId = team.team?.id;
   const teamData = getTeamData(teamName);
+
+  // Roster type toggle — offseason defaults to current (40Man), in-season defaults to season (fullSeason)
+  const isOffseason = season === latestSeason && new Date().getMonth() < 3;
+  const isCurrentSeason = season === latestSeason;
+  const [rosterType, setRosterType] = useState(isOffseason ? '40Man' : 'fullSeason');
+
+  // Auto-fetch current roster on mount if offseason
+  useEffect(() => {
+    if (isOffseason && onRosterTypeChange) {
+      onRosterTypeChange('40Man');
+    }
+  }, [teamId]);
+
+  const handleRosterToggle = (type) => {
+    if (type === rosterType) return;
+    setRosterType(type);
+    onRosterTypeChange?.(type);
+  };
   const teamLogoUrl = getTeamLogoUrl(teamId);
   const teamMlbUrl = getTeamMlbUrl(teamName);
 
@@ -276,9 +294,35 @@ const TeamCard = ({ team, season, hittingStats, pitchingStats, allTeamHitting, a
             {(roster || rosterLoading) && (
               <div className="mt-8">
                 <div className="flex items-start justify-between mb-6 pb-3 border-b border-border-light">
-                  <h2 className="font-display text-xl text-text-primary tracking-wide">
-                    ROSTER
-                  </h2>
+                  <div className="flex items-center gap-4">
+                    <h2 className="font-display text-xl text-text-primary tracking-wide">
+                      ROSTER
+                    </h2>
+                    {isCurrentSeason && (
+                      <div className="flex bg-bg-tertiary rounded-lg p-0.5 border border-border theme-transition">
+                        <button
+                          onClick={() => handleRosterToggle('fullSeason')}
+                          className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                            rosterType === 'fullSeason'
+                              ? 'bg-accent text-text-inverse shadow-sm'
+                              : 'text-text-secondary hover:text-text-primary'
+                          }`}
+                        >
+                          Season
+                        </button>
+                        <button
+                          onClick={() => handleRosterToggle('40Man')}
+                          className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                            rosterType === '40Man'
+                              ? 'bg-accent text-text-inverse shadow-sm'
+                              : 'text-text-secondary hover:text-text-primary'
+                          }`}
+                        >
+                          Current
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {roster && (
                     <span className="text-xs px-2 py-1 bg-accent/10 text-accent rounded font-bold">
                       {roster.length} PLAYERS
