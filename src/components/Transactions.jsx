@@ -56,16 +56,16 @@ const toApiDate = (isoDate) => {
 const lastDayOfMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 
 // Get the API date range based on current mode and selections
-const getDateRange = (mode, season, month, day, rangeStart, rangeEnd) => {
+const getDateRange = (mode, season, month, monthYear, day, rangeStart, rangeEnd) => {
   switch (mode) {
     case 'day':
       return { start: toApiDate(day), end: toApiDate(day) };
     case 'month': {
       const m = String(month + 1).padStart(2, '0');
-      const lastDay = lastDayOfMonth(season, month);
+      const lastDay = lastDayOfMonth(monthYear, month);
       return {
-        start: `${m}/01/${season}`,
-        end: `${m}/${String(lastDay).padStart(2, '0')}/${season}`,
+        start: `${m}/01/${monthYear}`,
+        end: `${m}/${String(lastDay).padStart(2, '0')}/${monthYear}`,
       };
     }
     case 'range':
@@ -178,6 +178,42 @@ const TransactionsSkeleton = () => (
 // Shared input classes
 const inputClass = 'px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition';
 
+// Detect if this is the "current" season (offseason = before April, latest season is prev year)
+const isOffseason = (season) => {
+  const now = new Date();
+  return now.getMonth() < 3 && season === now.getFullYear() - 1;
+};
+
+const isCurrentSeason = (season) => {
+  const now = new Date();
+  return now.getFullYear() === season || isOffseason(season);
+};
+
+// For current season during offseason, the max date extends into the next year (today)
+// For past seasons, max date is Dec 31 of that season year
+const getMaxDate = (season) => {
+  if (isOffseason(season)) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+  return `${season}-12-31`;
+};
+
+// Get the "current" month index and year for default selections
+const getDefaultMonth = (season) => {
+  const now = new Date();
+  if (isCurrentSeason(season)) return { month: now.getMonth(), year: now.getFullYear() };
+  return { month: 11, year: season }; // December for past seasons
+};
+
+const getDefaultDay = (season) => {
+  const now = new Date();
+  if (isCurrentSeason(season)) {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+  return `${season}-12-31`;
+};
+
 export default function Transactions({ season, onPlayerClick }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -186,31 +222,20 @@ export default function Transactions({ season, onPlayerClick }) {
 
   // Date selection state
   const [dateMode, setDateMode] = useState('month');
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    // Default to current month if current season, otherwise December
-    return now.getFullYear() === season ? now.getMonth() : 11;
-  });
-  const [selectedDay, setSelectedDay] = useState(() => {
-    const now = new Date();
-    return `${season}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  });
+  const [selectedMonth, setSelectedMonth] = useState(() => getDefaultMonth(season).month);
+  const [selectedMonthYear, setSelectedMonthYear] = useState(() => getDefaultMonth(season).year);
+  const [selectedDay, setSelectedDay] = useState(() => getDefaultDay(season));
   const [rangeStart, setRangeStart] = useState(`${season}-01-01`);
-  const [rangeEnd, setRangeEnd] = useState(`${season}-03-31`);
+  const [rangeEnd, setRangeEnd] = useState(() => getMaxDate(season));
 
   // Reset date selections when season changes
   useEffect(() => {
-    const now = new Date();
-    const isCurrentSeason = now.getFullYear() === season || (now.getMonth() < 3 && season === now.getFullYear() - 1);
-    if (isCurrentSeason) {
-      setSelectedMonth(now.getMonth());
-      setSelectedDay(`${season}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
-    } else {
-      setSelectedMonth(11);
-      setSelectedDay(`${season}-12-31`);
-    }
+    const def = getDefaultMonth(season);
+    setSelectedMonth(def.month);
+    setSelectedMonthYear(def.year);
+    setSelectedDay(getDefaultDay(season));
     setRangeStart(`${season}-01-01`);
-    setRangeEnd(`${season}-03-31`);
+    setRangeEnd(getMaxDate(season));
   }, [season]);
 
   // Fetch transactions when date selection changes
@@ -220,7 +245,7 @@ export default function Transactions({ season, onPlayerClick }) {
     setLoading(true);
     setError(null);
 
-    const { start, end } = getDateRange(dateMode, season, selectedMonth, selectedDay, rangeStart, rangeEnd);
+    const { start, end } = getDateRange(dateMode, season, selectedMonth, selectedMonthYear, selectedDay, rangeStart, rangeEnd);
 
     const load = async () => {
       try {
@@ -238,7 +263,7 @@ export default function Transactions({ season, onPlayerClick }) {
 
     load();
     return () => controller.abort();
-  }, [season, dateMode, selectedMonth, selectedDay, rangeStart, rangeEnd]);
+  }, [season, dateMode, selectedMonth, selectedMonthYear, selectedDay, rangeStart, rangeEnd]);
 
   // Apply type filter
   const filtered = useMemo(() => {
@@ -249,6 +274,27 @@ export default function Transactions({ season, onPlayerClick }) {
   }, [transactions, typeFilter]);
 
   const dateGroups = groupByDate(filtered);
+
+  const maxDate = getMaxDate(season);
+
+  // Build month options — Jan-Dec of season year, plus Jan-Mar of next year during offseason
+  const monthOptions = useMemo(() => {
+    const opts = MONTHS.map((name, i) => ({
+      value: `${season}-${i}`,
+      label: `${name} ${season}`,
+    }));
+    if (isOffseason(season)) {
+      const now = new Date();
+      const nextYear = season + 1;
+      for (let i = 0; i <= now.getMonth(); i++) {
+        opts.push({
+          value: `${nextYear}-${i}`,
+          label: `${MONTHS[i]} ${nextYear}`,
+        });
+      }
+    }
+    return opts;
+  }, [season]);
 
   return (
     <div className="animate-fade-in">
@@ -290,12 +336,16 @@ export default function Transactions({ season, onPlayerClick }) {
         {/* Date inputs based on mode */}
         {dateMode === 'month' && (
           <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+            value={`${selectedMonthYear}-${selectedMonth}`}
+            onChange={(e) => {
+              const [y, m] = e.target.value.split('-').map(Number);
+              setSelectedMonth(m);
+              setSelectedMonthYear(y);
+            }}
             className={inputClass}
           >
-            {MONTHS.map((name, i) => (
-              <option key={i} value={i}>{name}</option>
+            {monthOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         )}
@@ -305,7 +355,7 @@ export default function Transactions({ season, onPlayerClick }) {
             type="date"
             value={selectedDay}
             min={`${season}-01-01`}
-            max={`${season}-12-31`}
+            max={maxDate}
             onChange={(e) => setSelectedDay(e.target.value)}
             className={inputClass}
           />
@@ -327,7 +377,7 @@ export default function Transactions({ season, onPlayerClick }) {
                 type="date"
                 value={rangeEnd}
                 min={rangeStart}
-                max={`${season}-12-31`}
+                max={maxDate}
                 onChange={(e) => setRangeEnd(e.target.value)}
                 className={inputClass}
               />
