@@ -116,7 +116,7 @@ export const searchPlayers = async (query, signal) => {
 
   try {
     const response = await fetch(
-      `${MLB_API_BASE}/people/search?names=${encodeURIComponent(query)}&sportIds=1&active=true&hydrate=currentTeam,team`,
+      `${MLB_API_BASE}/people/search?names=${encodeURIComponent(query)}&sportIds=1&hydrate=currentTeam,team`,
       { signal }
     );
     const data = await response.json();
