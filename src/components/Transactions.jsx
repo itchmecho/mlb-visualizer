@@ -1,5 +1,5 @@
 // Transactions Feed
-// v2.2.1 | 2026-02-14
+// v2.3.0 | 2026-02-14
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchTransactions } from '../utils/api';
@@ -95,41 +95,91 @@ const groupByDate = (transactions) => {
   return groups;
 };
 
-// Render description with clickable player name
+// Render description with clickable player name(s)
 const TransactionDescription = ({ transaction, onPlayerClick }) => {
-  const { description, person } = transaction;
+  const { description, person, players } = transaction;
   if (!description) return null;
 
-  if (person?.fullName && description.includes(person.fullName)) {
-    const idx = description.indexOf(person.fullName);
-    const before = description.slice(0, idx);
-    const after = description.slice(idx + person.fullName.length);
+  // Use merged players array for trades, fall back to single person
+  const clickable = players?.length > 0
+    ? players.filter(p => p.fullName && description.includes(p.fullName))
+    : person?.fullName && description.includes(person.fullName)
+      ? [person]
+      : [];
 
-    return (
-      <p className="text-sm text-text-primary leading-relaxed">
-        {before}
-        <button
-          onClick={() => onPlayerClick({ id: person.id, fullName: person.fullName })}
-          className="font-semibold text-accent hover:text-accent-hover hover:underline transition-colors"
-        >
-          {person.fullName}
-        </button>
-        {after}
-      </p>
-    );
+  if (clickable.length === 0) {
+    return <p className="text-sm text-text-primary leading-relaxed">{description}</p>;
   }
 
-  return <p className="text-sm text-text-primary leading-relaxed">{description}</p>;
+  // Sort by position in description for correct splitting
+  const sorted = [...clickable].sort(
+    (a, b) => description.indexOf(a.fullName) - description.indexOf(b.fullName)
+  );
+
+  const segments = [];
+  let remaining = description;
+  for (const player of sorted) {
+    const idx = remaining.indexOf(player.fullName);
+    if (idx === -1) continue;
+    if (idx > 0) segments.push({ text: remaining.slice(0, idx) });
+    segments.push({ player });
+    remaining = remaining.slice(idx + player.fullName.length);
+  }
+  if (remaining) segments.push({ text: remaining });
+
+  return (
+    <p className="text-sm text-text-primary leading-relaxed">
+      {segments.map((seg, i) =>
+        seg.player ? (
+          <button
+            key={i}
+            onClick={() => onPlayerClick({ id: seg.player.id, fullName: seg.player.fullName })}
+            className="font-semibold text-accent hover:text-accent-hover hover:underline transition-colors"
+          >
+            {seg.player.fullName}
+          </button>
+        ) : (
+          <span key={i}>{seg.text}</span>
+        )
+      )}
+    </p>
+  );
 };
 
 // Single transaction row
 const TransactionRow = ({ transaction, onPlayerClick }) => {
   const badge = BADGE_CONFIG[transaction.typeCode] || { label: transaction.typeDesc, color: 'bg-bg-tertiary text-text-secondary border-border' };
-  const toTeamId = transaction.toTeam?.id;
-  const fromTeamId = transaction.fromTeam?.id;
+  const isTrade = transaction.typeCode === 'TR' && transaction.players?.length > 0;
 
-  return (
-    <div className="flex items-start gap-3 py-3 px-4 hover:bg-bg-elevated/50 transition-colors rounded-lg">
+  let teamLogos;
+  if (isTrade) {
+    // Extract both team IDs from merged players
+    const seen = new Set();
+    const teamIds = [];
+    for (const p of transaction.players) {
+      for (const team of [p.fromTeam, p.toTeam]) {
+        if (team?.id && !seen.has(team.id)) {
+          seen.add(team.id);
+          teamIds.push(team.id);
+        }
+      }
+    }
+    teamLogos = (
+      <div className="flex items-center gap-1 shrink-0 pt-0.5">
+        {teamIds[0] && <img src={getTeamLogoUrl(teamIds[0])} alt="" className="w-6 h-6 object-contain" loading="lazy" />}
+        <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16l-4-4m4 4l-4 4M20 16H4l4-4m-4 4l4 4" />
+        </svg>
+        {teamIds[1] && <img src={getTeamLogoUrl(teamIds[1])} alt="" className="w-6 h-6 object-contain" loading="lazy" />}
+        {teamIds.length > 2 && teamIds.slice(2).map(id => (
+          <img key={id} src={getTeamLogoUrl(id)} alt="" className="w-6 h-6 object-contain" loading="lazy" />
+        ))}
+      </div>
+    );
+  } else {
+    const toTeamId = transaction.toTeam?.id;
+    const fromTeamId = transaction.fromTeam?.id;
+    teamLogos = (
       <div className="flex items-center gap-1 shrink-0 pt-0.5">
         {fromTeamId && (
           <>
@@ -144,11 +194,15 @@ const TransactionRow = ({ transaction, onPlayerClick }) => {
         )}
         {!toTeamId && !fromTeamId && <div className="w-6 h-6" />}
       </div>
+    );
+  }
 
+  return (
+    <div className="flex items-start gap-3 py-3 px-4 hover:bg-bg-elevated/50 transition-colors rounded-lg">
+      {teamLogos}
       <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${badge.color}`}>
         {badge.label}
       </span>
-
       <div className="flex-1 min-w-0">
         <TransactionDescription transaction={transaction} onPlayerClick={onPlayerClick} />
       </div>
@@ -368,12 +422,51 @@ export default function Transactions({ season, onPlayerClick }) {
         )}
 
         {dateMode === 'day' && (
-          <DatePicker
-            value={selectedDay}
-            onChange={setSelectedDay}
-            min={`${season}-01-01`}
-            max={maxDate}
-          />
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                const d = new Date(selectedDay + 'T00:00:00');
+                d.setDate(d.getDate() - 1);
+                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                if (iso >= `${season}-01-01`) setSelectedDay(iso);
+              }}
+              disabled={selectedDay <= `${season}-01-01`}
+              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Previous day"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <DatePicker
+              value={selectedDay}
+              onChange={setSelectedDay}
+              min={`${season}-01-01`}
+              max={maxDate}
+            />
+            <button
+              onClick={() => {
+                const d = new Date(selectedDay + 'T00:00:00');
+                d.setDate(d.getDate() + 1);
+                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                if (iso <= maxDate) setSelectedDay(iso);
+              }}
+              disabled={selectedDay >= maxDate}
+              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Next day"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setSelectedDay(getDefaultDay(season))}
+              disabled={selectedDay === getDefaultDay(season)}
+              className="ml-1 px-2.5 py-1 rounded-md text-xs font-semibold text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            >
+              Today
+            </button>
+          </div>
         )}
 
         {dateMode === 'range' && (

@@ -864,6 +864,37 @@ const filterToMlbLevel = (raw) => raw.filter(t => {
   return true;
 });
 
+// Merge trade entries that share the same transaction id into a single entry
+// with a `players` array containing all players involved
+const mergeTrades = (transactions) => {
+  const result = [];
+  const tradeMap = new Map();
+
+  for (const t of transactions) {
+    if (t.typeCode === 'TR') {
+      // Skip ghost entries with no data
+      if (!t.description && !t.person) continue;
+      if (tradeMap.has(t.id)) {
+        const existing = tradeMap.get(t.id);
+        if (t.person) {
+          existing.players.push({ ...t.person, fromTeam: t.fromTeam, toTeam: t.toTeam });
+        }
+      } else {
+        const entry = {
+          ...t,
+          players: t.person ? [{ ...t.person, fromTeam: t.fromTeam, toTeam: t.toTeam }] : [],
+        };
+        tradeMap.set(t.id, entry);
+        result.push(entry);
+      }
+    } else {
+      result.push(t);
+    }
+  }
+
+  return result;
+};
+
 /**
  * Fetch MLB-level transactions for a date range.
  * @param {string} startDate - Start date MM/DD/YYYY
@@ -885,7 +916,7 @@ export const fetchTransactions = async (startDate, endDate, signal) => {
     );
     const data = await response.json();
     const raw = data.transactions || [];
-    const filtered = filterToMlbLevel(raw);
+    const filtered = mergeTrades(filterToMlbLevel(raw));
 
     // Sort newest first
     filtered.sort((a, b) => (b.date || b.effectiveDate || '').localeCompare(a.date || a.effectiveDate || ''));
