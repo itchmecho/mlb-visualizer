@@ -83,15 +83,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* Team logo visibility — light glow lifts dark logos off dark backgrounds */
-.team-logo {
-  filter: drop-shadow(0 1px 3px rgba(255, 255, 255, 0.15));
-}
-
-[data-theme="dark"] .team-logo {
-  filter: drop-shadow(0 1px 2.5px rgba(255, 255, 255, 0.2))
-          drop-shadow(0 0 8px rgba(255, 255, 255, 0.08));
-}
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {

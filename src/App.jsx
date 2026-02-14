@@ -1,5 +1,5 @@
 // MLB Player Visualizer - Main App
-// v4.9.0 | 2026-02-14
+// v4.10.0 | 2026-02-14
 
 import React, { useState, useRef, useEffect } from 'react';
 import PlayerSearch from './components/PlayerSearch';
@@ -12,6 +12,7 @@ import Scoreboard from './components/Scoreboard';
 import PlayoffBracket from './components/PlayoffBracket';
 import Transactions from './components/Transactions';
 import Schedule from './components/Schedule';
+import RetiredPlayerPicker from './components/RetiredPlayerPicker';
 import { PlayerCardSkeleton, StandingsSkeleton, TeamCardSkeleton } from './components/Skeleton';
 import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats, fetchPlayerAwards, fetchTopPlayerNames, fetchTransactions } from './utils/api';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
@@ -152,6 +153,7 @@ function App() {
   // Shared state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [retiredPlayerInfo, setRetiredPlayerInfo] = useState(null);
   const [season, setSeason] = useState(router.season);
   const [isPitcher, setIsPitcher] = useState(false);
 
@@ -366,7 +368,11 @@ function App() {
   }, [router.route, router.playerId, router.player1Id, router.player2Id, router.teamId, router.season, router.source]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('theme', next); // sync before render so getTeamLogoUrl reads correct theme
+      return next;
+    });
   };
 
   // Internal player data fetch — does NOT update URL (used by route restoration)
@@ -410,9 +416,32 @@ function App() {
       }
 
       if (!stats) {
+        // No stats for this season — check if player has MLB career history
+        const [careerHitting, careerPitching] = await Promise.all([
+          fetchCareerStats(player.id, 'hitting', signal).catch(() => []),
+          fetchCareerStats(player.id, 'pitching', signal).catch(() => []),
+        ]);
+        if (signal.aborted) return null;
+
+        // Extract unique MLB-level seasons (sportId === 1)
+        const mlbSeasons = new Set();
+        [...careerHitting, ...careerPitching].forEach(split => {
+          if (split.sport?.id === 1 && split.season) {
+            mlbSeasons.add(Number(split.season));
+          }
+        });
+
+        if (mlbSeasons.size > 0) {
+          const sortedSeasons = [...mlbSeasons].sort((a, b) => b - a);
+          setRetiredPlayerInfo({ player, seasons: sortedSeasons });
+          setLoading(false);
+          return null;
+        }
+
         throw new Error(`No ${seasonYear} stats found for this player`);
       }
 
+      setRetiredPlayerInfo(null);
       const showingPitcher = statGroup === 'pitching';
       setIsPitcher(showingPitcher);
 
@@ -673,6 +702,7 @@ function App() {
   const handleViewChange = async (newView) => {
     setView(newView);
     setError(null);
+    setRetiredPlayerInfo(null);
     switch (newView) {
       case 'teams':
         setSelectedTeam(null);
@@ -796,6 +826,7 @@ function App() {
     setStandings(null);
     setCareerStats(null); setGameLogData(null); setSplitData(null); setPlayerAwards(null);
     setError(null);
+    setRetiredPlayerInfo(null);
     router.navigate(buildHash('', season, latestSeason));
   };
 
@@ -812,6 +843,11 @@ function App() {
     } else {
       router.navigate(buildHash('', season, latestSeason));
     }
+  };
+
+  const handleRetiredSeasonSelect = (year) => {
+    setRetiredPlayerInfo(null);
+    handleSeasonChange(year);
   };
 
   const handleRosterPlayerClick = async (person) => {
@@ -983,8 +1019,18 @@ function App() {
           </div>
         )}
 
+        {/* Retired Player Season Picker */}
+        {retiredPlayerInfo && view === 'players' && (
+          <RetiredPlayerPicker
+            player={retiredPlayerInfo.player}
+            seasons={retiredPlayerInfo.seasons}
+            currentSeason={season}
+            onSelectSeason={handleRetiredSeasonSelect}
+          />
+        )}
+
         {/* Error State */}
-        {error && (
+        {error && !retiredPlayerInfo && (
           <div className="bg-accent-soft border border-accent/30 rounded-xl p-4 mb-6 theme-transition animate-fade-in">
             <p className="text-accent">{error}</p>
           </div>

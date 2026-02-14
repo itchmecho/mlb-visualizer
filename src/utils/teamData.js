@@ -1,5 +1,5 @@
 // Team data with IDs, colors, and abbreviations
-// v1.3.0 | 2026-02-14
+// v1.4.0 | 2026-02-14
 
 export const TEAM_DATA = {
   'Arizona Diamondbacks': { id: 109, abbr: 'ARI', slug: 'dbacks', primary: '#A71930', secondary: '#E3D4AD' },
@@ -52,9 +52,15 @@ export const getTeamMlbUrl = (teamName) => {
   return `https://www.mlb.com/${team.slug}`;
 };
 
-export const getTeamLogoUrl = (teamId) => {
+// Teams whose cap-on-dark logos have dark elements that vanish on dark backgrounds
+const CAP_DARK_FALLBACK = new Set([121, 111, 138, 158]); // Mets, Red Sox, Cardinals, Brewers
+
+export const getTeamLogoUrl = (teamId, theme) => {
   if (!teamId) return null;
-  return `https://www.mlbstatic.com/team-logos/${teamId}.svg`;
+  const t = theme || (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) || 'dark';
+  const useCap = t === 'dark' && !CAP_DARK_FALLBACK.has(teamId);
+  const variant = useCap ? 'team-cap-on-dark/' : '';
+  return `https://www.mlbstatic.com/team-logos/${variant}${teamId}.svg`;
 };
 
 export const getPlayerHeadshotUrl = (playerId) => {

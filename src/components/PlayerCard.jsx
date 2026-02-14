@@ -214,6 +214,9 @@ const PlayerCard = forwardRef(({ player, playerStats, leagueStats, season, isPit
               {/* Player Name */}
               <h1 className="font-display text-2xl md:text-4xl text-text-primary leading-none tracking-wide">
                 {player.firstName?.toUpperCase()}
+                {player.nickName && (
+                  <span className="text-text-muted text-lg md:text-2xl"> "{player.nickName.toUpperCase()}"</span>
+                )}
                 <br />
                 {player.lastName?.toUpperCase()}
               </h1>
