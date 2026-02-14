@@ -465,7 +465,7 @@ const LeaderChip = ({ label, data, onPlayerClick }) => (
   <div className="flex items-center min-w-0 py-1.5 gap-2.5">
     <div className="flex items-baseline gap-1.5 shrink-0">
       <span className="text-[10px] font-display font-bold text-accent tracking-wider">{label}</span>
-      <span className="text-[15px] font-display font-bold text-text-primary tabular-nums">{data.value}</span>
+      <span className="text-lg font-display font-bold text-text-primary tabular-nums">{data.value}</span>
     </div>
     <button
       onClick={() => onPlayerClick?.({ id: data.person?.id })}
