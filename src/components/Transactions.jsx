@@ -1,5 +1,5 @@
 // Transactions Feed
-// v2.1.0 | 2026-02-13
+// v2.2.0 | 2026-02-14
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchTransactions } from '../utils/api';
@@ -215,6 +215,16 @@ const getDefaultDay = (season) => {
   return `${season}-12-31`;
 };
 
+// Get default range start (7 days ago, clamped to season start)
+const getDefaultRangeStart = (season) => {
+  const now = new Date();
+  const sevenAgo = new Date(now);
+  sevenAgo.setDate(sevenAgo.getDate() - 7);
+  const seasonStart = new Date(`${season}-01-01T00:00:00`);
+  const d = sevenAgo < seasonStart ? seasonStart : sevenAgo;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export default function Transactions({ season, onPlayerClick }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -223,11 +233,11 @@ export default function Transactions({ season, onPlayerClick }) {
   const [error, setError] = useState(null);
 
   // Date selection state
-  const [dateMode, setDateMode] = useState('month');
+  const [dateMode, setDateMode] = useState('range');
   const [selectedMonth, setSelectedMonth] = useState(() => getDefaultMonth(season).month);
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => getDefaultMonth(season).year);
   const [selectedDay, setSelectedDay] = useState(() => getDefaultDay(season));
-  const [rangeStart, setRangeStart] = useState(`${season}-01-01`);
+  const [rangeStart, setRangeStart] = useState(() => getDefaultRangeStart(season));
   const [rangeEnd, setRangeEnd] = useState(() => getMaxDate(season));
 
   // Reset date selections when season changes
@@ -236,7 +246,7 @@ export default function Transactions({ season, onPlayerClick }) {
     setSelectedMonth(def.month);
     setSelectedMonthYear(def.year);
     setSelectedDay(getDefaultDay(season));
-    setRangeStart(`${season}-01-01`);
+    setRangeStart(getDefaultRangeStart(season));
     setRangeEnd(getMaxDate(season));
   }, [season]);
 
