@@ -1,5 +1,5 @@
 // Playoff Bracket visualization
-// v1.1.0 | 2026-02-14
+// v1.2.0 | 2026-02-14
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchPostseason } from '../utils/api';
@@ -196,6 +196,18 @@ const PlayoffBracket = ({ season }) => {
     return grouped;
   }, [series]);
 
+  const allExpanded = series.length > 0 && series.every(s => expandedSeries[s.id]);
+
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpandedSeries({});
+    } else {
+      const all = {};
+      series.forEach(s => { all[s.id] = true; });
+      setExpandedSeries(all);
+    }
+  };
+
   const toggleSeries = (id) => {
     setExpandedSeries(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -207,7 +219,17 @@ const PlayoffBracket = ({ season }) => {
         <h2 className="font-display text-5xl md:text-6xl text-text-primary tracking-wide mb-3">
           {season} PLAYOFFS
         </h2>
-        <p className="text-text-muted text-lg">Postseason bracket and results</p>
+        <div className="flex items-center justify-center gap-3">
+          <p className="text-text-muted text-lg">Postseason bracket and results</p>
+          {series.length > 0 && (
+            <button
+              onClick={toggleAll}
+              className="text-xs font-medium px-2.5 py-1 rounded-md border border-border text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
+            >
+              {allExpanded ? 'Collapse All' : 'Expand All'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Loading */}
