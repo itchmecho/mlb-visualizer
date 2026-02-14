@@ -464,7 +464,7 @@ const AwardChip = ({ label, data, onPlayerClick }) => (
 const LeaderChip = ({ label, data, onPlayerClick }) => (
   <div className="flex items-center min-w-0 py-1.5 gap-2.5">
     <div className="flex items-baseline gap-1.5 shrink-0">
-      <span className="text-[10px] font-display font-bold text-accent tracking-wider">{label}</span>
+      <span className="text-xs font-display font-bold text-accent tracking-wider">{label}</span>
       <span className="text-lg font-display font-bold text-text-primary tabular-nums">{data.value}</span>
     </div>
     <button
@@ -477,7 +477,7 @@ const LeaderChip = ({ label, data, onPlayerClick }) => (
 );
 
 // Season Snapshot — WS champion, awards, stat leaders
-const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick }) => {
+const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick, onSelectTeam }) => {
   const winnerId = WORLD_SERIES_WINNERS[season];
   const winnerName = winnerId ? getTeamNameById(winnerId) : null;
   const winnerColor = winnerName ? getTeamColor(winnerName) : '#666';
@@ -512,20 +512,25 @@ const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick }) 
       {/* World Series Champions */}
       {winnerId && winnerName && (
         <div className={`px-5 py-4 flex items-center gap-4 ${awardEntries.length > 0 || leaderEntries.length > 0 ? 'border-b border-border' : ''}`}>
-          <img
-            src={getTeamLogoUrl(winnerId)}
-            alt={winnerName}
-            className="w-12 h-12 object-contain team-logo"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-          <div>
-            <h3 className="font-display text-xl tracking-wide text-text-primary">
-              {winnerName}
-            </h3>
-            <p className="text-sm text-text-muted">
-              {season} World Series Champions
-            </p>
-          </div>
+          <button
+            onClick={() => onSelectTeam?.({ id: winnerId })}
+            className="flex items-center gap-4 cursor-pointer group"
+          >
+            <img
+              src={getTeamLogoUrl(winnerId)}
+              alt={winnerName}
+              className="w-12 h-12 object-contain team-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <div className="text-left">
+              <h3 className="font-display text-xl tracking-wide text-text-primary group-hover:text-accent transition-colors">
+                {winnerName}
+              </h3>
+              <p className="text-sm text-text-muted">
+                {season} World Series Champions
+              </p>
+            </div>
+          </button>
         </div>
       )}
 
@@ -708,6 +713,7 @@ const Standings = ({ standings, season, loading, onSelectTeam, onPlayerClick }) 
         seasonData={seasonData}
         snapshotLoading={snapshotLoading}
         onPlayerClick={onPlayerClick}
+        onSelectTeam={onSelectTeam}
       />
 
       {/* Sorted view: single flat table */}

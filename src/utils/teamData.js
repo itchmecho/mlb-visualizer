@@ -67,5 +67,5 @@ export const getTeamLogoUrl = (teamId, theme) => {
 
 export const getPlayerHeadshotUrl = (playerId) => {
   if (!playerId) return null;
-  return `https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_100/v1/people/${playerId}/headshot/silo/current`;
+  return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:silo:current.png/w_180,q_100/v1/people/${playerId}/headshot/silo/current`;
 };
