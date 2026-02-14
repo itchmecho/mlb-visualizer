@@ -1,5 +1,5 @@
 // Playoff Bracket visualization
-// v1.0.0 | 2026-02-06
+// v1.1.0 | 2026-02-14
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchPostseason } from '../utils/api';
@@ -13,48 +13,48 @@ const ROUND_ORDER = [
   { key: 'W', label: 'World Series', shortLabel: 'WS' },
 ];
 
-// Extract series from postseason data
+// Extract series from postseason /series endpoint
 const extractSeries = (postseasonData) => {
   if (!postseasonData?.series) return [];
 
   return postseasonData.series.map(s => {
     const games = s.games || [];
     const round = s.series?.gameType || '';
-    const matchup = s.matchupTeams || [];
 
-    // Determine teams
-    const team1Data = matchup[0] || {};
-    const team2Data = matchup[1] || {};
+    // Extract the two teams from finished games
+    const teamMap = {};
+    for (const g of games) {
+      for (const side of ['away', 'home']) {
+        const t = g.teams?.[side];
+        if (t?.team?.id && !(t.team.id in teamMap)) {
+          teamMap[t.team.id] = { team: t.team, wins: 0 };
+        }
+      }
+    }
 
-    // Count wins per team from games
-    const team1Wins = games.filter(g =>
-      g.teams?.home?.team?.id === team1Data.team?.id
-        ? (g.teams?.home?.score || 0) > (g.teams?.away?.score || 0)
-        : (g.teams?.away?.score || 0) > (g.teams?.home?.score || 0)
-    ).length;
-    const team2Wins = games.filter(g =>
-      g.teams?.home?.team?.id === team2Data.team?.id
-        ? (g.teams?.home?.score || 0) > (g.teams?.away?.score || 0)
-        : (g.teams?.away?.score || 0) > (g.teams?.home?.score || 0)
-    ).length;
+    // Count wins from games with final scores
+    for (const g of games) {
+      const away = g.teams?.away;
+      const home = g.teams?.home;
+      if (away?.isWinner && teamMap[away.team?.id]) teamMap[away.team.id].wins++;
+      if (home?.isWinner && teamMap[home.team?.id]) teamMap[home.team.id].wins++;
+    }
+
+    const teams = Object.values(teamMap);
+    const team1 = teams[0] || { team: {}, wins: 0 };
+    const team2 = teams[1] || { team: {}, wins: 0 };
+
+    // Series description from first game (e.g. "AL Division Series")
+    const description = games[0]?.seriesDescription || '';
 
     return {
-      id: s.series?.id || `${round}-${team1Data.team?.id}-${team2Data.team?.id}`,
+      id: s.series?.id || `${round}-${team1.team?.id}-${team2.team?.id}`,
       round,
       roundLabel: ROUND_ORDER.find(r => r.key === round)?.label || round,
-      team1: {
-        team: team1Data.team || {},
-        wins: team1Wins,
-        seed: team1Data.seed?.rank,
-      },
-      team2: {
-        team: team2Data.team || {},
-        wins: team2Wins,
-        seed: team2Data.seed?.rank,
-      },
+      team1: { team: team1.team, wins: team1.wins },
+      team2: { team: team2.team, wins: team2.wins },
       games,
-      seriesStatus: s.series?.status || '',
-      description: s.series?.description || '',
+      description,
     };
   });
 };
@@ -80,9 +80,6 @@ const MatchupCard = ({ matchup, expanded, onToggle }) => {
         {/* Team 1 */}
         <div className={`flex items-center justify-between py-1.5 ${t1Winner ? '' : 'opacity-60'}`}>
           <div className="flex items-center gap-2.5">
-            {team1.seed && (
-              <span className="text-xs text-text-muted font-bold w-4">{team1.seed}</span>
-            )}
             {t1Data.id && (
               <img src={getTeamLogoUrl(t1Data.id)} alt={t1Data.abbr} className="w-6 h-6 object-contain team-logo" />
             )}
@@ -98,9 +95,6 @@ const MatchupCard = ({ matchup, expanded, onToggle }) => {
         {/* Team 2 */}
         <div className={`flex items-center justify-between py-1.5 ${t2Winner ? '' : 'opacity-60'}`}>
           <div className="flex items-center gap-2.5">
-            {team2.seed && (
-              <span className="text-xs text-text-muted font-bold w-4">{team2.seed}</span>
-            )}
             {t2Data.id && (
               <img src={getTeamLogoUrl(t2Data.id)} alt={t2Data.abbr} className="w-6 h-6 object-contain team-logo" />
             )}

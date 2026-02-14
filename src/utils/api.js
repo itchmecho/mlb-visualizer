@@ -600,7 +600,7 @@ export const fetchPostseason = async (season, signal) => {
 
   try {
     const response = await fetch(
-      `${MLB_API_BASE}/schedule/postseason?season=${season}&hydrate=team,linescore`,
+      `${MLB_API_BASE}/schedule/postseason/series?season=${season}&hydrate=team,linescore`,
       { signal }
     );
     const data = await response.json();
