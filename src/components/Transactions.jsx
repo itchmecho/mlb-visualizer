@@ -220,7 +220,7 @@ const getDefaultRangeStart = (season) => {
   const endStr = getMaxDate(season);
   const end = new Date(endStr + 'T00:00:00');
   const sevenAgo = new Date(end);
-  sevenAgo.setDate(sevenAgo.getDate() - 7);
+  sevenAgo.setDate(sevenAgo.getDate() - 8);
   const seasonStart = new Date(`${season}-01-01T00:00:00`);
   const d = sevenAgo < seasonStart ? seasonStart : sevenAgo;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
