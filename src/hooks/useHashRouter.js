@@ -13,6 +13,7 @@ const ROUTE_PATTERNS = [
   { pattern: /^\/scoreboard\/?$/, route: 'scoreboard', extract: () => ({}) },
   { pattern: /^\/transactions\/?$/, route: 'transactions', extract: () => ({}) },
   { pattern: /^\/bracket\/?$/, route: 'bracket', extract: () => ({}) },
+  { pattern: /^\/schedule\/?$/, route: 'schedule', extract: () => ({}) },
   { pattern: /^\/?$/, route: 'home', extract: () => ({}) },
 ];
 
@@ -110,6 +111,7 @@ export function useHashRouter(defaultSeason) {
       case 'scoreboard': return 'scoreboard';
       case 'transactions': return 'transactions';
       case 'bracket': return 'bracket';
+      case 'schedule': return 'schedule';
       default: return '';
     }
   }, [routeState]);

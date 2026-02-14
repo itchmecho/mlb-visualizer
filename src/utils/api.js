@@ -558,6 +558,34 @@ export const fetchTeamSchedule = async (teamId, startDate, endDate, signal) => {
 };
 
 /**
+ * Fetch MLB schedule for a date range (returns dates[] array for calendar grouping)
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ * @param {number|null} teamId - Optional team ID filter
+ * @param {AbortSignal} signal - Optional abort signal
+ * @returns {Promise<Array>} Array of { date, games[] } objects
+ */
+export const fetchScheduleRange = async (startDate, endDate, teamId = null, signal) => {
+  const cacheKey = `range-${startDate}-${endDate}-${teamId || 'all'}`;
+  if (scheduleCache.has(cacheKey)) return scheduleCache.get(cacheKey);
+
+  try {
+    const teamParam = teamId ? `&teamId=${teamId}` : '';
+    const url = `${MLB_API_BASE}/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}${teamParam}&hydrate=team,linescore`;
+
+    const response = await fetch(url, { signal });
+    const data = await response.json();
+    const result = data.dates || [];
+    if (result.length > 0) scheduleCache.set(cacheKey, result);
+    return result;
+  } catch (error) {
+    if (error.name === 'AbortError') return [];
+    console.error('Schedule range error:', error);
+    throw error;
+  }
+};
+
+/**
  * Fetch box score for a specific game
  * @param {number} gamePk - Game primary key
  * @param {AbortSignal} signal - Optional abort signal
