@@ -1,5 +1,5 @@
 // Schedule & Scoreboard page
-// v1.0.0 | 2026-02-06
+// v1.3.0 | 2026-02-14
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchSchedule, fetchBoxScore, fetchTeamSchedule } from '../utils/api';
@@ -172,31 +172,188 @@ const GameCard = ({ game, expanded, onToggle }) => {
   );
 };
 
-// Opening Day countdown (approximate - usually late March)
-const OpeningDayCountdown = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  // Opening Day is typically the last Thursday of March
-  const openingDay = new Date(year, 2, 27); // March 27 as approximate
-  if (openingDay < now) {
-    openingDay.setFullYear(year + 1);
-  }
-  const diff = openingDay - now;
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-  if (days <= 0) return null;
+// Ticking countdown digits
+const CountdownTicker = ({ time, size = 'lg' }) => {
+  const isLarge = size === 'lg';
+  const numClass = isLarge
+    ? 'font-display text-4xl md:text-5xl text-accent tabular-nums leading-none'
+    : 'font-display text-2xl text-accent tabular-nums leading-none';
+  const labelClass = isLarge
+    ? 'text-[10px] text-text-muted tracking-widest mt-1'
+    : 'text-[9px] text-text-muted tracking-widest mt-0.5';
+  const gap = isLarge ? 'gap-3 md:gap-4' : 'gap-2';
 
   return (
-    <div className="inline-flex flex-col items-center bg-bg-card border border-border rounded-xl p-6">
-      <span className="text-xs text-text-muted font-medium tracking-wider mb-2">OPENING DAY</span>
-      <span className="font-display text-5xl text-accent">{days}</span>
-      <span className="text-sm text-text-secondary mt-1">days away</span>
+    <div className={`flex items-start justify-center ${gap}`}>
+      {time.days > 0 && (
+        <div className="flex flex-col items-center">
+          <span className={numClass}>{String(time.days).padStart(2, '0')}</span>
+          <span className={labelClass}>DAYS</span>
+        </div>
+      )}
+      <div className="flex flex-col items-center">
+        <span className={numClass}>{String(time.hours).padStart(2, '0')}</span>
+        <span className={labelClass}>HRS</span>
+      </div>
+      <div className="flex flex-col items-center">
+        <span className={numClass}>{String(time.minutes).padStart(2, '0')}</span>
+        <span className={labelClass}>MIN</span>
+      </div>
+      <div className="flex flex-col items-center">
+        <span className={numClass}>{String(time.seconds).padStart(2, '0')}</span>
+        <span className={labelClass}>SEC</span>
+      </div>
+    </div>
+  );
+};
+
+// Unified off-day display — adapts to offseason, spring training, and in-season
+const OffDayDisplay = ({ afterDate }) => {
+  const [nextGame, setNextGame] = useState(null);
+  const [gameTime, setGameTime] = useState(null);
+  const [odTime, setOdTime] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Opening Day target
+  const openingDay = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const od = new Date(year, 2, 27); // ~March 27
+    if (od < now) od.setFullYear(year + 1);
+    return od;
+  }, []);
+
+  // Fetch next game (look ahead up to 30 days for deep offseason)
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setNextGame(null);
+
+    const findNext = async () => {
+      try {
+        const start = new Date(afterDate);
+        start.setDate(start.getDate() + 1);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 30);
+
+        const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${formatApiDate(start)}&endDate=${formatApiDate(end)}&hydrate=team`;
+        const resp = await fetch(url, { signal: controller.signal });
+        const data = await resp.json();
+        const games = data.dates?.flatMap(d => d.games) || [];
+        const upcoming = games
+          .filter(g => g.gameDate && new Date(g.gameDate) > new Date())
+          .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+
+        if (upcoming.length > 0) setNextGame(upcoming[0]);
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error('Next game lookup error:', err);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+
+    findNext();
+    return () => controller.abort();
+  }, [afterDate]);
+
+  // Tick both countdowns every second
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+
+      // Next game countdown
+      if (nextGame?.gameDate) {
+        const diff = new Date(nextGame.gameDate) - now;
+        if (diff > 0) {
+          setGameTime({
+            days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+            hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+            minutes: Math.floor((diff / (1000 * 60)) % 60),
+            seconds: Math.floor((diff / 1000) % 60),
+          });
+        } else {
+          setGameTime(null);
+        }
+      }
+
+      // Opening Day countdown
+      const odDiff = openingDay - now;
+      if (odDiff > 0) {
+        setOdTime({
+          days: Math.floor(odDiff / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((odDiff / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((odDiff / (1000 * 60)) % 60),
+          seconds: Math.floor((odDiff / 1000) % 60),
+        });
+      } else {
+        setOdTime(null);
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [nextGame, openingDay]);
+
+  if (loading) return null;
+
+  const isSpringTraining = nextGame?.gameType === 'S';
+  const hasNextGame = nextGame && gameTime;
+  const hasOpeningDay = odTime && odTime.days > 0;
+  // Only show Opening Day when it's relevant (spring training or deep offseason)
+  const showOpeningDay = hasOpeningDay && (isSpringTraining || !hasNextGame);
+
+  const awayData = hasNextGame ? getTeamData(nextGame.teams?.away?.team?.name) : null;
+  const homeData = hasNextGame ? getTeamData(nextGame.teams?.home?.team?.name) : null;
+
+  // Deep offseason — no upcoming games, just Opening Day
+  if (!hasNextGame && hasOpeningDay) {
+    return (
+      <div className="inline-flex flex-col items-center bg-bg-card border border-border rounded-2xl px-8 py-7">
+        <span className="text-xs font-semibold text-text-muted tracking-[0.2em] mb-5">OPENING DAY</span>
+        <CountdownTicker time={odTime} size="lg" />
+      </div>
+    );
+  }
+
+  if (!hasNextGame) return null;
+
+  // Spring training or in-season
+  return (
+    <div className="inline-flex flex-col items-center bg-bg-card border border-border rounded-2xl px-8 py-7">
+      {/* Period label */}
+      <span className="text-xs font-semibold text-text-muted tracking-[0.2em] mb-4">
+        {isSpringTraining ? 'SPRING TRAINING' : 'NEXT GAME'}
+      </span>
+
+      {/* Matchup */}
+      <div className="flex items-center gap-3 mb-5">
+        {awayData.id && <img src={getTeamLogoUrl(awayData.id)} alt={awayData.abbr} className="w-8 h-8 object-contain" />}
+        <span className="font-display text-xl text-text-primary">{awayData.abbr}</span>
+        <span className="text-text-muted text-sm">@</span>
+        <span className="font-display text-xl text-text-primary">{homeData.abbr}</span>
+        {homeData.id && <img src={getTeamLogoUrl(homeData.id)} alt={homeData.abbr} className="w-8 h-8 object-contain" />}
+      </div>
+
+      {/* Primary countdown */}
+      <CountdownTicker time={gameTime} size="lg" />
+
+      {/* Secondary: Opening Day (during spring training) */}
+      {showOpeningDay && (
+        <div className="mt-5 pt-4 border-t border-border/50 w-full text-center">
+          <span className="text-[10px] font-semibold text-text-muted tracking-[0.15em]">
+            OPENING DAY IN {odTime.days} DAY{odTime.days !== 1 ? 'S' : ''}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
 
 // Date navigation component
 const DateNav = ({ date, onDateChange }) => {
+  const isToday = formatApiDate(date) === formatApiDate(new Date());
+
   const moveDay = (offset) => {
     const d = new Date(date);
     d.setDate(d.getDate() + offset);
@@ -220,7 +377,8 @@ const DateNav = ({ date, onDateChange }) => {
       </div>
       <button
         onClick={() => moveDay(1)}
-        className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-colors"
+        disabled={isToday}
+        className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-colors disabled:opacity-30 disabled:pointer-events-none"
       >
         <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -228,7 +386,8 @@ const DateNav = ({ date, onDateChange }) => {
       </button>
       <button
         onClick={() => onDateChange(new Date())}
-        className="px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-hover transition-colors"
+        disabled={isToday}
+        className="px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-30 disabled:pointer-events-none"
       >
         Today
       </button>
@@ -343,7 +502,7 @@ const Scoreboard = ({ season }) => {
           <p className="text-text-muted mb-6">
             No games scheduled for {formatDisplayDate(selectedDate)}.
           </p>
-          <OpeningDayCountdown />
+          <OffDayDisplay afterDate={selectedDate} />
         </div>
       )}
 
