@@ -1,5 +1,5 @@
 // Team data with IDs, colors, and abbreviations
-// v1.2.0 | 2026-02-10
+// v1.3.0 | 2026-02-14
 
 export const TEAM_DATA = {
   'Arizona Diamondbacks': { id: 109, abbr: 'ARI', slug: 'dbacks', primary: '#A71930', secondary: '#E3D4AD' },
@@ -33,6 +33,13 @@ export const TEAM_DATA = {
   'Texas Rangers': { id: 140, abbr: 'TEX', slug: 'rangers', primary: '#003278', secondary: '#C0111F' },
   'Toronto Blue Jays': { id: 141, abbr: 'TOR', slug: 'bluejays', primary: '#134A8E', secondary: '#1D2D5C' },
   'Washington Nationals': { id: 120, abbr: 'WSH', slug: 'nationals', primary: '#AB0003', secondary: '#14225A' },
+  // Historical name aliases (for older seasons in API data)
+  'Cleveland Indians': { id: 114, abbr: 'CLE', slug: 'guardians', primary: '#00385D', secondary: '#E50022' },
+  'Florida Marlins': { id: 146, abbr: 'FLA', slug: 'marlins', primary: '#00A3E0', secondary: '#EF3340' },
+  'Montreal Expos': { id: 120, abbr: 'MON', slug: 'nationals', primary: '#003087', secondary: '#E4002C' },
+  'Tampa Bay Devil Rays': { id: 139, abbr: 'TB', slug: 'rays', primary: '#092C5C', secondary: '#8FBCE6' },
+  'Anaheim Angels': { id: 108, abbr: 'ANA', slug: 'angels', primary: '#BA0021', secondary: '#003263' },
+  'Los Angeles Angels of Anaheim': { id: 108, abbr: 'LAA', slug: 'angels', primary: '#BA0021', secondary: '#003263' },
 };
 
 export const getTeamData = (teamName) => {
