@@ -154,18 +154,17 @@ const TeamRoster = ({ roster, loading, onPlayerClick, teamColor }) => {
                     className="w-full flex items-center gap-3 px-3 py-2 bg-bg-tertiary hover:bg-bg-elevated rounded-lg transition-all theme-transition group cursor-pointer text-left"
                   >
                     {/* Headshot */}
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-bg-primary flex-shrink-0 border border-border-light">
-                      {headshotUrl ? (
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-bg-primary flex-shrink-0 border border-border-light relative">
+                      <div className="absolute inset-0 flex items-center justify-center text-text-muted text-xs font-bold">
+                        {fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </div>
+                      {headshotUrl && (
                         <img
                           src={headshotUrl}
                           alt={fullName}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover relative"
                           onError={(e) => { e.target.style.display = 'none'; }}
                         />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
-                          ?
-                        </div>
                       )}
                     </div>
 

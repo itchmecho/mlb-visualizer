@@ -52,15 +52,17 @@ export const getTeamMlbUrl = (teamName) => {
   return `https://www.mlb.com/${team.slug}`;
 };
 
-// Teams whose cap-on-dark logos have dark elements that vanish on dark backgrounds
-const CAP_DARK_FALLBACK = new Set([121, 111, 138, 158]); // Mets, Red Sox, Cardinals, Brewers
+// Dark-mode logo overrides for teams whose cap-on-dark has invisible dark elements
+const DARK_LOGO_OVERRIDE = { 121: 'team-primary-on-dark/' }; // Mets: white+orange primary
 
 export const getTeamLogoUrl = (teamId, theme) => {
   if (!teamId) return null;
   const t = theme || (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) || 'dark';
-  const useCap = t === 'dark' && !CAP_DARK_FALLBACK.has(teamId);
-  const variant = useCap ? 'team-cap-on-dark/' : '';
-  return `https://www.mlbstatic.com/team-logos/${variant}${teamId}.svg`;
+  if (t === 'dark') {
+    const variant = DARK_LOGO_OVERRIDE[teamId] || 'team-cap-on-dark/';
+    return `https://www.mlbstatic.com/team-logos/${variant}${teamId}.svg`;
+  }
+  return `https://www.mlbstatic.com/team-logos/${teamId}.svg`;
 };
 
 export const getPlayerHeadshotUrl = (playerId) => {

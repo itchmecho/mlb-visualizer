@@ -460,19 +460,19 @@ const AwardChip = ({ label, data, onPlayerClick }) => (
   </div>
 );
 
-// Leader chip — stat category, player name, value
+// Leader chip — stat badge + value as tight unit, then player name
 const LeaderChip = ({ label, data, onPlayerClick }) => (
-  <div className="flex items-center gap-2 min-w-0 py-1">
-    <span className="text-xs font-display font-bold text-accent tracking-wide w-8 shrink-0">{label}</span>
+  <div className="flex items-center min-w-0 py-1.5 gap-2.5">
+    <div className="flex items-baseline gap-1.5 shrink-0">
+      <span className="text-[10px] font-display font-bold text-accent tracking-wider">{label}</span>
+      <span className="text-[15px] font-display font-bold text-text-primary tabular-nums">{data.value}</span>
+    </div>
     <button
       onClick={() => onPlayerClick?.({ id: data.person?.id })}
-      className="text-sm text-text-primary hover:text-accent transition-colors cursor-pointer truncate"
+      className="text-sm text-text-secondary hover:text-accent transition-colors cursor-pointer truncate"
     >
       {data.person?.fullName || 'Unknown'}
     </button>
-    <span className="text-sm font-display font-bold text-text-secondary ml-auto shrink-0 tabular-nums">
-      {data.value}
-    </span>
   </div>
 );
 
@@ -545,7 +545,7 @@ const SeasonSnapshot = ({ season, seasonData, snapshotLoading, onPlayerClick }) 
       {leaderEntries.length > 0 && (
         <div className="px-5 py-4">
           <h4 className="text-[11px] uppercase tracking-widest text-text-muted font-semibold mb-2">Season Leaders</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0.5">
+          <div className="flex flex-wrap gap-x-8 gap-y-0.5">
             {leaderEntries.map(({ key, label, data }) => (
               <LeaderChip key={key} label={label} data={data} onPlayerClick={onPlayerClick} />
             ))}
