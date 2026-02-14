@@ -1,9 +1,10 @@
 // Transactions Feed
-// v2.0.0 | 2026-02-13
+// v2.1.0 | 2026-02-13
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchTransactions } from '../utils/api';
 import { getTeamLogoUrl } from '../utils/teamData';
+import DatePicker from './DatePicker';
 
 // Type filter categories
 const TYPE_FILTERS = [
@@ -218,6 +219,7 @@ export default function Transactions({ season, onPlayerClick }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('all');
+  const [sortAsc, setSortAsc] = useState(false);
   const [error, setError] = useState(null);
 
   // Date selection state
@@ -273,7 +275,11 @@ export default function Transactions({ season, onPlayerClick }) {
     return transactions.filter(t => filterDef.codes.includes(t.typeCode));
   }, [transactions, typeFilter]);
 
-  const dateGroups = groupByDate(filtered);
+  const dateGroups = useMemo(() => {
+    const groups = groupByDate(filtered);
+    if (sortAsc) return [...groups].reverse().map(g => ({ ...g, items: [...g.items].reverse() }));
+    return groups;
+  }, [filtered, sortAsc]);
 
   const maxDate = getMaxDate(season);
 
@@ -351,45 +357,45 @@ export default function Transactions({ season, onPlayerClick }) {
         )}
 
         {dateMode === 'day' && (
-          <input
-            type="date"
+          <DatePicker
             value={selectedDay}
+            onChange={setSelectedDay}
             min={`${season}-01-01`}
             max={maxDate}
-            onChange={(e) => setSelectedDay(e.target.value)}
-            className={inputClass}
           />
         )}
 
         {dateMode === 'range' && (
-          <>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={rangeStart}
-                min={`${season}-01-01`}
-                max={rangeEnd}
-                onChange={(e) => setRangeStart(e.target.value)}
-                className={inputClass}
-              />
-              <span className="text-text-muted text-sm">to</span>
-              <input
-                type="date"
-                value={rangeEnd}
-                min={rangeStart}
-                max={maxDate}
-                onChange={(e) => setRangeEnd(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-          </>
+          <DatePicker
+            isRange
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            onRangeChange={({ start, end }) => {
+              setRangeStart(start);
+              setRangeEnd(end);
+            }}
+            min={`${season}-01-01`}
+            max={maxDate}
+          />
         )}
 
-        {/* Result count */}
+        {/* Sort toggle + result count */}
         {!loading && (
-          <span className="text-text-muted text-sm">
-            {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSortAsc(!sortAsc)}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
+              title={sortAsc ? 'Oldest first' : 'Newest first'}
+            >
+              <svg className={`w-3.5 h-3.5 transition-transform ${sortAsc ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              <span className="text-xs font-medium">{sortAsc ? 'Oldest' : 'Newest'}</span>
+            </button>
+            <span className="text-text-muted text-sm">
+              {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         )}
       </div>
 

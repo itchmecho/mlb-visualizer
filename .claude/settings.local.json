@@ -25,7 +25,10 @@
       "Bash(npx vite:*)",
       "Bash(npx:*)",
       "Bash(npm root:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(curl:*)",
+      "Bash(python -c:*)",
+      "Bash(python -m json.tool:*)"
     ]
   },
   "hooks": {}
