@@ -1,5 +1,5 @@
 // Transactions Feed
-// v2.2.0 | 2026-02-14
+// v2.2.1 | 2026-02-14
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchTransactions } from '../utils/api';
@@ -215,10 +215,11 @@ const getDefaultDay = (season) => {
   return `${season}-12-31`;
 };
 
-// Get default range start (7 days ago, clamped to season start)
+// Get default range start (7 days before the range end)
 const getDefaultRangeStart = (season) => {
-  const now = new Date();
-  const sevenAgo = new Date(now);
+  const endStr = getMaxDate(season);
+  const end = new Date(endStr + 'T00:00:00');
+  const sevenAgo = new Date(end);
   sevenAgo.setDate(sevenAgo.getDate() - 7);
   const seasonStart = new Date(`${season}-01-01T00:00:00`);
   const d = sevenAgo < seasonStart ? seasonStart : sevenAgo;
