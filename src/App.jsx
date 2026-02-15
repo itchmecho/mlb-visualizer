@@ -381,16 +381,16 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.route, router.playerId, router.player1Id, router.player2Id, router.teamId, router.season, router.source]);
 
-  // Restore scroll position after content has rendered (loading states settled)
+  // Restore scroll position after content has rendered (all loading states settled)
   useEffect(() => {
-    if (pendingScrollRef.current != null && !loading && !teamsLoading) {
+    if (pendingScrollRef.current != null && !loading && !teamsLoading && !teamLoading && !rosterLoading) {
       const scrollY = pendingScrollRef.current;
       pendingScrollRef.current = null;
       requestAnimationFrame(() => {
         window.scrollTo(0, scrollY);
       });
     }
-  }, [loading, teamsLoading]);
+  }, [loading, teamsLoading, teamLoading, rosterLoading]);
 
   const toggleTheme = () => {
     setTheme(prev => {

@@ -80,10 +80,10 @@ const isPostponed = (game) => {
 // Heat-map background class for all-teams calendar cells
 const getHeatClass = (count) => {
   if (count <= 0) return '';
-  if (count <= 3) return 'bg-accent/5';
-  if (count <= 7) return 'bg-accent/[0.08]';
-  if (count <= 11) return 'bg-accent/[0.12]';
-  return 'bg-accent/[0.18]';
+  if (count <= 3) return 'bg-accent/10';
+  if (count <= 7) return 'bg-accent/[0.15]';
+  if (count <= 11) return 'bg-accent/[0.20]';
+  return 'bg-accent/25';
 };
 
 // ── Empty Calendar Message ────────────────────────────────────
@@ -194,7 +194,7 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
             <img
               src={getTeamLogoUrl(opp.data.id)}
               alt=""
-              className="w-3 h-3 md:w-4 md:h-4 shrink-0"
+              className="w-4 h-4 shrink-0 hidden md:block"
             />
           )}
           <span className="text-[10px] md:text-xs text-text-muted ml-auto shrink-0">
@@ -214,10 +214,14 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
     const borderColor = result === 'W' ? 'border-l-green-500' : result === 'L' ? 'border-l-red-500' : 'border-l-transparent';
 
     return (
-      <div
-        className={`bg-bg-card min-h-[56px] md:min-h-[100px] p-1 md:p-2 border-l-2 ${borderColor} ${
-          isToday ? 'ring-1 ring-accent ring-inset' : ''
-        } ${isOutside ? 'opacity-40' : ''}`}
+      <button
+        onClick={() => hasGames && onDayClick(dateStr)}
+        disabled={!hasGames}
+        className={`bg-bg-card min-h-[64px] md:min-h-[100px] p-1 md:p-2 border-l-2 ${borderColor} text-left w-full transition-colors ${
+          hasGames ? 'hover:bg-bg-elevated cursor-pointer' : ''
+        } ${isToday ? 'ring-1 ring-accent ring-inset' : ''} ${isOutside ? 'opacity-40' : ''} ${
+          isSelected ? '!bg-bg-elevated' : ''
+        }`}
       >
         <div className={`text-[10px] md:text-xs mb-1 ${isToday ? 'text-accent font-bold' : 'text-text-muted'}`}>
           {dayNum}
@@ -227,7 +231,7 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
         {!hasGames && !isOutside && (
           <div className="text-[10px] text-text-muted/50">—</div>
         )}
-      </div>
+      </button>
     );
   }
 
@@ -252,7 +256,7 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
   return (
     <button
       onClick={() => hasGames && onDayClick(dateStr)}
-      className={`min-h-[56px] md:min-h-[100px] p-1 md:p-2 text-left w-full transition-colors ${
+      className={`min-h-[64px] md:min-h-[100px] p-1 md:p-2 text-left w-full transition-colors ${
         hasGames ? `bg-bg-card ${getHeatClass(dayGames.length)} hover:bg-bg-elevated cursor-pointer` : 'bg-bg-card'
       } ${isToday ? 'ring-1 ring-accent ring-inset' : ''} ${isOutside ? 'opacity-40' : ''} ${
         isSelected ? '!bg-bg-elevated' : ''
@@ -270,13 +274,13 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
           </span>
           {/* Desktop: "X games" label + matchup previews */}
           <div className="hidden md:block">
-            <span className="text-[11px] text-text-secondary font-medium">
+            <span className="text-[11px] text-accent font-medium">
               {dayGames.length} game{dayGames.length !== 1 ? 's' : ''}
             </span>
             <div className="mt-1 space-y-px">
               {matchupPreviews}
               {remaining > 0 && (
-                <div className="text-[9px] text-text-muted/60 leading-tight">+{remaining} more</div>
+                <div className="text-[9px] text-accent/50 leading-tight">+{remaining} more</div>
               )}
             </div>
           </div>
@@ -358,8 +362,31 @@ const ListView = ({ scheduleData, teamFilter, viewMonth, viewYear, season }) => 
     return <EmptyCalendarMessage viewMonth={viewMonth} viewYear={viewYear} season={season} />;
   }
 
+  // Compute W-L record for team-specific list view
+  const record = teamFilter ? (() => {
+    let w = 0, l = 0;
+    for (const entry of scheduleData) {
+      for (const game of entry.games) {
+        const result = getResult(game, teamFilter);
+        if (result === 'W') w++;
+        else if (result === 'L') l++;
+      }
+    }
+    if (w + l === 0) return null;
+    const pct = ((w / (w + l)) * 1000).toFixed(0).padStart(3, '0');
+    return { w, l, pct: `.${pct}` };
+  })() : null;
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {teamFilter && record && (
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <span className="font-display text-base tracking-wide text-text-primary">{MONTHS[viewMonth].toUpperCase()} {viewYear}</span>
+          <span className="text-text-muted">—</span>
+          <span className="font-medium">{record.w}-{record.l}</span>
+          <span className="text-text-muted">({record.pct})</span>
+        </div>
+      )}
       {scheduleData.map(dateEntry => {
         const displayDate = new Date(dateEntry.date + 'T12:00:00');
         const formatted = displayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -495,6 +522,7 @@ const Schedule = ({ season, latestSeason }) => {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(null);
   const abortRef = useRef(null);
+  const expandedRef = useRef(null);
 
   // Reset when season changes
   useEffect(() => {
@@ -552,6 +580,15 @@ const Schedule = ({ season, latestSeason }) => {
     loadSchedule();
     return () => abortRef.current?.abort();
   }, [startDate, endDate, teamFilter]);
+
+  // Scroll expanded day card into view when it appears
+  useEffect(() => {
+    if (selectedDay && expandedRef.current) {
+      requestAnimationFrame(() => {
+        expandedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+  }, [selectedDay]);
 
   // Build a map of date → games[] for calendar
   const gamesByDate = useMemo(() => {
@@ -642,103 +679,102 @@ const Schedule = ({ season, latestSeason }) => {
 
   return (
     <div className="animate-fade-in">
-      {/* Header + Month navigation */}
-      <div className="text-center mb-6">
-        <h2 className="font-display text-5xl md:text-6xl text-text-primary tracking-wide mb-3">
-          SCHEDULE
-        </h2>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-          <div />
-          <div className="flex items-center gap-2">
+      {/* Title */}
+      <h2 className="font-display text-3xl text-text-primary tracking-wide mb-4">SCHEDULE</h2>
+
+      {/* Controls bar */}
+      <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
+        {/* Month navigation */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={prevMonth}
+            disabled={!canGoPrev}
+            className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
+            aria-label="Previous month"
+          >
+            <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <span className="font-display text-xl md:text-2xl tracking-wide text-text-primary min-w-[160px] md:min-w-[180px] text-center">
+            {MONTHS[viewMonth].toUpperCase()} {viewYear}
+          </span>
+
+          <button
+            onClick={nextMonth}
+            disabled={!canGoNextSimple}
+            className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
+            aria-label="Next month"
+          >
+            <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {isCurrentSeason && (
             <button
-              onClick={prevMonth}
-              disabled={!canGoPrev}
-              className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
-              aria-label="Previous month"
+              onClick={goToToday}
+              className="ml-1 p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all theme-transition"
+              aria-label="Go to today"
+              title="Today"
             >
-              <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3" strokeWidth={2} />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </button>
-
-            <span className="font-display text-xl md:text-2xl tracking-wide text-text-primary min-w-[180px] text-center">
-              {MONTHS[viewMonth].toUpperCase()} {viewYear}
-            </span>
-
-            <button
-              onClick={nextMonth}
-              disabled={!canGoNextSimple}
-              className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
-              aria-label="Next month"
-            >
-              <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-          <div className="pl-2">
-            {isCurrentSeason && (
-              <button
-                onClick={goToToday}
-                className="px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-hover transition-colors"
-              >
-                Today
-              </button>
-            )}
-          </div>
+          )}
         </div>
-      </div>
-
-      {/* Controls */}
-      <div className="flex flex-col md:flex-row items-center gap-3 mb-6">
-        {/* Team filter */}
-        <select
-          value={teamFilter || ''}
-          onChange={(e) => {
-            setTeamFilter(e.target.value ? parseInt(e.target.value) : null);
-            setSelectedDay(null);
-          }}
-          className="w-full md:w-auto px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 theme-transition"
-        >
-          <option value="">All Teams</option>
-          {teamOptions.map(team => (
-            <option key={team.id} value={team.id}>{team.name}</option>
-          ))}
-        </select>
 
         {/* Spacer */}
-        <div className="flex-1" />
+        <div className="hidden md:block flex-1" />
 
-        {/* View toggle */}
-        <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
-          <button
-            onClick={() => setViewMode('calendar')}
-            className={`px-3 py-1.5 rounded-md text-sm transition-all ${
-              viewMode === 'calendar'
-                ? 'bg-accent text-text-inverse shadow-sm'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-            title="Calendar view"
+        {/* Team filter + View toggle */}
+        <div className="flex items-center gap-3">
+          <select
+            value={teamFilter || ''}
+            onChange={(e) => {
+              setTeamFilter(e.target.value ? parseInt(e.target.value) : null);
+              setSelectedDay(null);
+            }}
+            className="appearance-none pl-3 pr-7 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 theme-transition"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundSize: '14px 14px', backgroundPosition: 'right 8px center' }}
           >
-            {/* Calendar icon */}
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-3 py-1.5 rounded-md text-sm transition-all ${
-              viewMode === 'list'
-                ? 'bg-accent text-text-inverse shadow-sm'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-            title="List view"
-          >
-            {/* List icon */}
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-          </button>
+            <option value="">All Teams</option>
+            {teamOptions.map(team => (
+              <option key={team.id} value={team.id}>{team.name}</option>
+            ))}
+          </select>
+
+          <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-md text-sm transition-all ${
+                viewMode === 'calendar'
+                  ? 'bg-accent text-text-inverse shadow-sm'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="Calendar view"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-md text-sm transition-all ${
+                viewMode === 'list'
+                  ? 'bg-accent text-text-inverse shadow-sm'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="List view"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -780,9 +816,11 @@ const Schedule = ({ season, latestSeason }) => {
               })}
             </div>
 
-            {/* Expanded day detail (all-teams mode) */}
-            {selectedDay && !teamFilter && expandedGames.length > 0 && (
-              <ExpandedDayGames dateStr={selectedDay} games={expandedGames} />
+            {/* Expanded day detail */}
+            {selectedDay && expandedGames.length > 0 && (
+              <div ref={expandedRef}>
+                <ExpandedDayGames dateStr={selectedDay} games={expandedGames} />
+              </div>
             )}
           </div>
         )
