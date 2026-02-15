@@ -83,6 +83,10 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* Dark-mode cap logos are slightly smaller visually — bump them up */
+[data-theme="dark"] .team-logo {
+  transform: scale(1.35);
+}
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {

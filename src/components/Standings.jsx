@@ -117,7 +117,7 @@ const getSortValue = (team, key) => {
   }
 };
 
-const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbsRunDiff }) => {
+const TeamRow = ({ team, rank, isLeader, isLast, season, onSelectTeam, condensed, maxAbsRunDiff }) => {
   const teamName = team.team?.name || 'Unknown';
   const teamId = team.team?.id;
   const wins = team.wins || 0;
@@ -189,7 +189,7 @@ const TeamRow = ({ team, rank, isLeader, season, onSelectTeam, condensed, maxAbs
             </div>
             {/* Home/Away/1-Run tooltip */}
             {!condensed && (homeRecord || awayRecord || oneRunRecord) && (
-              <div className="absolute top-full left-0 mt-1 opacity-0 group-hover/name:opacity-100 transition-opacity duration-200 bg-bg-elevated border border-border rounded-lg shadow-lg z-50 pointer-events-none px-3 py-2 whitespace-nowrap hidden md:block">
+              <div className={`absolute left-0 ${isLast ? 'bottom-full mb-1' : 'top-full mt-1'} opacity-0 group-hover/name:opacity-100 transition-opacity duration-200 bg-bg-elevated border border-border rounded-lg shadow-lg z-50 pointer-events-none px-3 py-2 whitespace-nowrap hidden md:block`}>
                 <div className="flex gap-4 text-xs">
                   {homeRecord && (
                     <div>
@@ -345,6 +345,7 @@ const DivisionTable = ({ division, teams, animationDelay, season, onSelectTeam, 
                 team={team}
                 rank={index + 1}
                 isLeader={index === 0}
+                isLast={index === sortedTeams.length - 1}
                 season={season}
                 onSelectTeam={onSelectTeam}
                 condensed={condensed}
@@ -390,6 +391,7 @@ const SortedTable = ({ teams, sortConfig, onSort, season, onSelectTeam, condense
                 team={team}
                 rank={index + 1}
                 isLeader={false}
+                isLast={index === sorted.length - 1}
                 season={season}
                 onSelectTeam={onSelectTeam}
                 condensed={condensed}

@@ -210,6 +210,57 @@ const TransactionRow = ({ transaction, onPlayerClick }) => {
   );
 };
 
+// Transaction card (for card view in day mode)
+const TransactionCard = ({ transaction, onPlayerClick }) => {
+  const badge = BADGE_CONFIG[transaction.typeCode] || { label: transaction.typeDesc, color: 'bg-bg-tertiary text-text-secondary border-border' };
+  const isTrade = transaction.typeCode === 'TR' && transaction.players?.length > 0;
+
+  let logos;
+  if (isTrade) {
+    const seen = new Set();
+    const teamIds = [];
+    for (const p of transaction.players) {
+      for (const team of [p.fromTeam, p.toTeam]) {
+        if (team?.id && !seen.has(team.id)) {
+          seen.add(team.id);
+          teamIds.push(team.id);
+        }
+      }
+    }
+    logos = (
+      <div className="flex items-center gap-2">
+        {teamIds[0] && <img src={getTeamLogoUrl(teamIds[0])} alt="" className="w-8 h-8 object-contain" loading="lazy" />}
+        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16l-4-4m4 4l-4 4M20 16H4l4-4m-4 4l4 4" />
+        </svg>
+        {teamIds[1] && <img src={getTeamLogoUrl(teamIds[1])} alt="" className="w-8 h-8 object-contain" loading="lazy" />}
+        {teamIds.slice(2).map(id => (
+          <img key={id} src={getTeamLogoUrl(id)} alt="" className="w-8 h-8 object-contain" loading="lazy" />
+        ))}
+      </div>
+    );
+  } else {
+    const toTeamId = transaction.toTeam?.id;
+    const fromTeamId = transaction.fromTeam?.id;
+    const logoId = toTeamId || fromTeamId;
+    logos = logoId ? (
+      <img src={getTeamLogoUrl(logoId)} alt="" className="w-8 h-8 object-contain" loading="lazy" />
+    ) : <div className="w-8 h-8" />;
+  }
+
+  return (
+    <div className="bg-bg-card border border-border rounded-xl p-4 hover:bg-bg-elevated/30 transition-colors theme-transition flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        {logos}
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${badge.color}`}>
+          {badge.label}
+        </span>
+      </div>
+      <TransactionDescription transaction={transaction} onPlayerClick={onPlayerClick} />
+    </div>
+  );
+};
+
 // Loading skeleton
 const TransactionsSkeleton = () => (
   <div className="space-y-6">
@@ -231,7 +282,7 @@ const TransactionsSkeleton = () => (
 );
 
 // Shared input classes
-const inputClass = 'px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition';
+const inputClass = 'appearance-none pl-3 pr-7 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition bg-no-repeat bg-[length:14px_14px] bg-[position:right_8px_center] bg-[image:url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20fill=%27none%27%20viewBox=%270%200%2024%2024%27%20stroke=%27%239ca3af%27%20stroke-width=%272%27%3E%3Cpath%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%20d=%27M19%209l-7%207-7-7%27/%3E%3C/svg%3E")]';
 
 // Detect if this is the "current" season (offseason = before April, latest season is prev year)
 const isOffseason = (season) => {
@@ -285,6 +336,7 @@ export default function Transactions({ season, onPlayerClick }) {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('all');
   const [sortAsc, setSortAsc] = useState(false);
+  const [cardView, setCardView] = useState(false);
   const [error, setError] = useState(null);
 
   // Date selection state
@@ -385,122 +437,145 @@ export default function Transactions({ season, onPlayerClick }) {
         </select>
       </div>
 
-      {/* Date controls */}
-      <div className="flex flex-wrap items-end gap-3 mb-6">
-        {/* Date mode toggle */}
-        <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
-          {DATE_MODES.map(mode => (
-            <button
-              key={mode.key}
-              onClick={() => setDateMode(mode.key)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                dateMode === mode.key
-                  ? 'bg-accent text-text-inverse shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Date inputs based on mode */}
-        {dateMode === 'month' && (
-          <select
-            value={`${selectedMonthYear}-${selectedMonth}`}
-            onChange={(e) => {
-              const [y, m] = e.target.value.split('-').map(Number);
-              setSelectedMonth(m);
-              setSelectedMonthYear(y);
-            }}
-            className={inputClass}
-          >
-            {monthOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+      {/* Date controls + display controls */}
+      <div className="flex flex-col md:flex-row md:items-end gap-3 mb-6">
+        {/* Data controls: date mode + date picker */}
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Date mode toggle */}
+          <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
+            {DATE_MODES.map(mode => (
+              <button
+                key={mode.key}
+                onClick={() => setDateMode(mode.key)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  dateMode === mode.key
+                    ? 'bg-accent text-text-inverse shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {mode.label}
+              </button>
             ))}
-          </select>
-        )}
+          </div>
 
-        {dateMode === 'day' && (
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => {
-                const d = new Date(selectedDay + 'T00:00:00');
-                d.setDate(d.getDate() - 1);
-                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                if (iso >= `${season}-01-01`) setSelectedDay(iso);
+          {/* Date inputs based on mode */}
+          {dateMode === 'month' && (
+            <select
+              value={`${selectedMonthYear}-${selectedMonth}`}
+              onChange={(e) => {
+                const [y, m] = e.target.value.split('-').map(Number);
+                setSelectedMonth(m);
+                setSelectedMonthYear(y);
               }}
-              disabled={selectedDay <= `${season}-01-01`}
-              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
-              title="Previous day"
+              className={inputClass}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+              {monthOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          )}
+
+          {dateMode === 'day' && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  const d = new Date(selectedDay + 'T00:00:00');
+                  d.setDate(d.getDate() - 1);
+                  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  if (iso >= `${season}-01-01`) setSelectedDay(iso);
+                }}
+                disabled={selectedDay <= `${season}-01-01`}
+                className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Previous day"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <DatePicker
+                value={selectedDay}
+                onChange={setSelectedDay}
+                min={`${season}-01-01`}
+                max={maxDate}
+              />
+              <button
+                onClick={() => {
+                  const d = new Date(selectedDay + 'T00:00:00');
+                  d.setDate(d.getDate() + 1);
+                  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  if (iso <= maxDate) setSelectedDay(iso);
+                }}
+                disabled={selectedDay >= maxDate}
+                className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Next day"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setSelectedDay(getDefaultDay(season))}
+                disabled={selectedDay === getDefaultDay(season)}
+                className="ml-1 px-2.5 py-1 rounded-md text-xs font-semibold text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                Today
+              </button>
+            </div>
+          )}
+
+          {dateMode === 'range' && (
             <DatePicker
-              value={selectedDay}
-              onChange={setSelectedDay}
+              isRange
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onRangeChange={({ start, end }) => {
+                setRangeStart(start);
+                setRangeEnd(end);
+              }}
               min={`${season}-01-01`}
               max={maxDate}
             />
-            <button
-              onClick={() => {
-                const d = new Date(selectedDay + 'T00:00:00');
-                d.setDate(d.getDate() + 1);
-                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                if (iso <= maxDate) setSelectedDay(iso);
-              }}
-              disabled={selectedDay >= maxDate}
-              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
-              title="Next day"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setSelectedDay(getDefaultDay(season))}
-              disabled={selectedDay === getDefaultDay(season)}
-              className="ml-1 px-2.5 py-1 rounded-md text-xs font-semibold text-text-muted hover:text-text-primary hover:bg-bg-elevated disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            >
-              Today
-            </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {dateMode === 'range' && (
-          <DatePicker
-            isRange
-            rangeStart={rangeStart}
-            rangeEnd={rangeEnd}
-            onRangeChange={({ start, end }) => {
-              setRangeStart(start);
-              setRangeEnd(end);
-            }}
-            min={`${season}-01-01`}
-            max={maxDate}
-          />
-        )}
-
-        {/* Sort toggle + result count */}
-        {!loading && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSortAsc(!sortAsc)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
-              title={sortAsc ? 'Oldest first' : 'Newest first'}
-            >
-              <svg className={`w-3.5 h-3.5 transition-transform ${sortAsc ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              <span className="text-xs font-medium">{sortAsc ? 'Oldest' : 'Newest'}</span>
-            </button>
-            <span className="text-text-muted text-sm">
-              {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
+        {/* Display controls: sort + view toggle + count (always rendered, dimmed while loading) */}
+        <div className={`flex items-center gap-2 md:ml-auto md:pl-3 md:border-l md:border-border transition-opacity ${loading ? 'opacity-40 pointer-events-none' : ''}`}>
+          <button
+            onClick={() => setSortAsc(!sortAsc)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
+            title={sortAsc ? 'Oldest first' : 'Newest first'}
+          >
+            <svg className={`w-3.5 h-3.5 transition-transform ${sortAsc ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span className="text-xs font-medium">{sortAsc ? 'Oldest' : 'Newest'}</span>
+          </button>
+          {dateMode === 'day' && (
+            <div className="flex bg-bg-tertiary rounded-md p-0.5 border border-border">
+              <button
+                onClick={() => setCardView(false)}
+                className={`p-1 rounded transition-colors ${!cardView ? 'bg-bg-elevated text-text-primary' : 'text-text-muted hover:text-text-primary'}`}
+                title="List view"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setCardView(true)}
+                className={`p-1 rounded transition-colors ${cardView ? 'bg-bg-elevated text-text-primary' : 'text-text-muted hover:text-text-primary'}`}
+                title="Card view"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                </svg>
+              </button>
+            </div>
+          )}
+          <span className="text-text-muted text-sm ml-auto md:ml-0">
+            {loading ? '...' : `${filtered.length} transaction${filtered.length !== 1 ? 's' : ''}`}
+          </span>
+        </div>
       </div>
 
       {/* Error */}
@@ -530,11 +605,19 @@ export default function Transactions({ season, onPlayerClick }) {
                 {formatDateDisplay(group.date)}
               </h3>
 
-              <div className="bg-bg-card border border-border rounded-xl overflow-hidden theme-transition divide-y divide-border/50">
-                {group.items.map(t => (
-                  <TransactionRow key={t.id} transaction={t} onPlayerClick={onPlayerClick} />
-                ))}
-              </div>
+              {dateMode === 'day' && cardView ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {group.items.map(t => (
+                    <TransactionCard key={t.id} transaction={t} onPlayerClick={onPlayerClick} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-bg-card border border-border rounded-xl overflow-hidden theme-transition divide-y divide-border/50">
+                  {group.items.map(t => (
+                    <TransactionRow key={t.id} transaction={t} onPlayerClick={onPlayerClick} />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

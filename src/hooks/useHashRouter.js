@@ -1,5 +1,5 @@
 // Hash-based router for browser history support
-// v2.0.0 | 2026-02-06
+// v2.1.0 | 2026-02-14
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -61,8 +61,9 @@ export function useHashRouter(defaultSeason) {
       const { path, params } = parseHash(window.location.hash);
       const matched = matchRoute(path);
       const season = params.season ? +params.season : defaultSeason;
+      const savedScrollY = window.history.state?.scrollY ?? 0;
       setRouteState(prev => {
-        const next = { ...matched, season, source: 'popstate' };
+        const next = { ...matched, season, source: 'popstate', savedScrollY };
         // Avoid unnecessary re-renders if nothing changed
         if (prev.route === next.route && prev.season === next.season &&
             prev.playerId === next.playerId && prev.player1Id === next.player1Id &&
@@ -80,7 +81,10 @@ export function useHashRouter(defaultSeason) {
   // Push a new history entry (for view changes)
   const navigate = useCallback((hash) => {
     programmaticRef.current = true;
+    // Save current scroll position in the current history entry before leaving
+    window.history.replaceState({ scrollY: window.scrollY }, '');
     window.location.hash = hash;
+    window.scrollTo(0, 0);
     const { path, params } = parseHash(hash);
     const matched = matchRoute(path);
     const season = params.season ? +params.season : defaultSeason;
@@ -92,7 +96,7 @@ export function useHashRouter(defaultSeason) {
     programmaticRef.current = true;
     const url = new URL(window.location.href);
     url.hash = hash;
-    window.history.replaceState(null, '', url.toString());
+    window.history.replaceState(window.history.state, '', url.toString());
     const { path, params } = parseHash(hash);
     const matched = matchRoute(path);
     const season = params.season ? +params.season : defaultSeason;

@@ -1,11 +1,14 @@
-// PlayerSearch component - Search input with autocomplete
-// v1.4.0 | 2026-02-06
+// PlayerSearch component - Search input with autocomplete (players + teams)
+// v1.5.0 | 2026-02-14
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { searchPlayers } from '../utils/api';
-import { getTeamData, getPlayerHeadshotUrl } from '../utils/teamData';
+import { getTeamData, getPlayerHeadshotUrl, getTeamLogoUrl, TEAM_DATA } from '../utils/teamData';
 
-const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player..." }) => {
+// Historical/defunct names to exclude from team search
+const EXCLUDED_TEAMS = ['Indians', 'Florida', 'Expos', 'Devil Rays', 'Anaheim'];
+
+const PlayerSearch = ({ onSelect, onTeamSelect, loading, placeholder = "Search for a player or team..." }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -14,6 +17,23 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
   const abortControllerRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Build searchable team list (once)
+  const teamList = useMemo(() =>
+    Object.entries(TEAM_DATA)
+      .filter(([name]) => !EXCLUDED_TEAMS.some(ex => name.includes(ex)))
+      .map(([name, data]) => ({ _type: 'team', teamName: name, ...data })),
+    []
+  );
+
+  // Local team search — instant, no API call
+  const searchTeams = (q) => {
+    const lower = q.toLowerCase();
+    return teamList.filter(t =>
+      t.teamName.toLowerCase().includes(lower) ||
+      t.abbr.toLowerCase() === lower
+    ).slice(0, 5);
+  };
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -27,6 +47,12 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
       return;
     }
 
+    // Show team matches instantly while API loads
+    const teamMatches = onTeamSelect ? searchTeams(query) : [];
+    if (teamMatches.length > 0) {
+      setResults(teamMatches);
+    }
+
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -35,13 +61,17 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
       try {
         const players = await searchPlayers(query, abortController.signal);
         if (!abortController.signal.aborted) {
-          setResults(players);
+          const teamMatches = onTeamSelect ? searchTeams(query) : [];
+          const playerResults = players.map(p => ({ _type: 'player', ...p }));
+          setResults([...teamMatches, ...playerResults]);
           setSearchedOnce(true);
           setFocusedIndex(-1);
         }
       } catch (err) {
         if (err.name !== 'AbortError' && !abortController.signal.aborted) {
-          setResults([]);
+          // Keep team results if API fails
+          const teamMatches = onTeamSelect ? searchTeams(query) : [];
+          setResults(teamMatches);
         }
       } finally {
         if (!abortController.signal.aborted) {
@@ -54,10 +84,15 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
       clearTimeout(timer);
       abortController.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const handleSelect = (player) => {
-    onSelect(player);
+  const handleSelect = (item) => {
+    if (item._type === 'team' && onTeamSelect) {
+      onTeamSelect({ team: { id: item.id, name: item.teamName } });
+    } else {
+      onSelect(item);
+    }
     setQuery('');
     setResults([]);
     setSearchedOnce(false);
@@ -144,8 +179,8 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
             role="combobox"
             aria-expanded={showDropdown && results.length > 0}
             aria-controls={listboxId}
-            aria-activedescendant={focusedIndex >= 0 ? `player-option-${focusedIndex}` : undefined}
-            aria-label="Search for a player"
+            aria-activedescendant={focusedIndex >= 0 ? `search-option-${focusedIndex}` : undefined}
+            aria-label="Search for a player or team"
             autoComplete="off"
           />
           {query ? (
@@ -190,27 +225,65 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
           className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border rounded-xl overflow-hidden shadow-theme-xl z-50 max-h-80 overflow-y-auto theme-transition"
         >
           {results.length > 0 ? (
-            results.map((player, index) => {
-              const teamData = getTeamData(player.currentTeam?.name);
+            results.map((item, index) => {
+              if (item._type === 'team') {
+                return (
+                  <button
+                    key={`team-${item.id}`}
+                    id={`search-option-${index}`}
+                    role="option"
+                    aria-selected={focusedIndex === index}
+                    onClick={() => handleSelect(item)}
+                    className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b border-border-light last:border-0 focus:outline-none ${
+                      focusedIndex === index
+                        ? 'bg-bg-elevated'
+                        : 'hover:bg-bg-elevated'
+                    }`}
+                  >
+                    <div className="w-10 h-10 bg-bg-tertiary rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center p-1.5">
+                      <img
+                        src={getTeamLogoUrl(item.id)}
+                        alt=""
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-text-primary font-medium truncate">
+                        {item.teamName}
+                      </div>
+                      <div className="text-sm text-text-muted flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: item.primary }}
+                          aria-hidden="true"
+                        />
+                        <span>Team</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              }
 
+              // Player result
+              const teamData = getTeamData(item.currentTeam?.name);
               return (
                 <button
-                  key={player.id}
-                  id={`player-option-${index}`}
+                  key={item.id}
+                  id={`search-option-${index}`}
                   role="option"
                   aria-selected={focusedIndex === index}
-                  onClick={() => handleSelect(player)}
+                  onClick={() => handleSelect(item)}
                   className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b border-border-light last:border-0 focus:outline-none ${
                     focusedIndex === index
                       ? 'bg-bg-elevated'
                       : 'hover:bg-bg-elevated'
                   }`}
                 >
-                  <PlayerAvatar playerId={player.id} playerName={player.fullName} />
+                  <PlayerAvatar playerId={item.id} playerName={item.fullName} />
 
                   <div className="flex-1 min-w-0">
                     <div className="text-text-primary font-medium truncate">
-                      {player.fullName}
+                      {item.fullName}
                     </div>
                     <div className="text-sm text-text-muted flex items-center gap-2">
                       <span
@@ -219,11 +292,11 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
                         aria-hidden="true"
                       />
                       <span className="truncate">
-                        {player.currentTeam?.name || 'Free Agent'}
+                        {item.currentTeam?.name || 'Free Agent'}
                       </span>
                       <span className="text-text-muted" aria-hidden="true">•</span>
                       <span className="text-text-muted">
-                        {player.primaryPosition?.abbreviation}
+                        {item.primaryPosition?.abbreviation}
                       </span>
                     </div>
                   </div>
@@ -232,7 +305,7 @@ const PlayerSearch = ({ onSelect, loading, placeholder = "Search for a player...
             })
           ) : searchedOnce && !searching ? (
             <div className="px-4 py-6 text-center text-text-muted" role="status">
-              No players found for "{query}"
+              No results found for "{query}"
             </div>
           ) : null}
         </div>

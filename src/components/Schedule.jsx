@@ -1,5 +1,5 @@
 // Schedule Page — Calendar & List views for MLB game schedule
-// v1.0.0 | 2026-02-14
+// v1.1.0 | 2026-02-14
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchScheduleRange } from '../utils/api';
@@ -77,6 +77,50 @@ const isPostponed = (game) => {
   return state.includes('Postponed') || state.includes('Suspended');
 };
 
+// Heat-map background class for all-teams calendar cells
+const getHeatClass = (count) => {
+  if (count <= 0) return '';
+  if (count <= 3) return 'bg-accent/5';
+  if (count <= 7) return 'bg-accent/[0.08]';
+  if (count <= 11) return 'bg-accent/[0.12]';
+  return 'bg-accent/[0.18]';
+};
+
+// ── Empty Calendar Message ────────────────────────────────────
+
+const EmptyCalendarMessage = ({ viewMonth, viewYear, season }) => {
+  const month = viewMonth; // 0-indexed
+  const isOffseason = month >= 10 || month === 0; // Nov, Dec, Jan
+  const isSpringTraining = month === 1; // Feb
+
+  let heading, subtext;
+
+  if (isOffseason) {
+    heading = 'OFFSEASON';
+    subtext = `Spring Training begins late February ${season + 1 > viewYear ? season + 1 : viewYear}`;
+  } else if (isSpringTraining) {
+    heading = 'SPRING TRAINING';
+    subtext = 'Games begin in late February';
+  } else {
+    heading = 'NO GAMES SCHEDULED';
+    subtext = `${MONTHS[viewMonth]} ${viewYear}`;
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+      <div className="w-16 h-16 mb-6 rounded-2xl bg-bg-tertiary border border-border flex items-center justify-center">
+        <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+      <h3 className="font-display text-3xl md:text-4xl tracking-wide text-text-primary mb-2">
+        {heading}
+      </h3>
+      <p className="text-sm text-text-muted">{subtext}</p>
+    </div>
+  );
+};
+
 // ── Skeleton ──────────────────────────────────────────────────
 
 const CalendarSkeleton = () => (
@@ -90,9 +134,10 @@ const CalendarSkeleton = () => (
     {/* 5 rows × 7 cells */}
     <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
       {Array.from({ length: 35 }).map((_, i) => (
-        <div key={i} className="bg-bg-card min-h-[56px] md:min-h-[80px] p-1 md:p-2">
+        <div key={i} className="bg-bg-card min-h-[56px] md:min-h-[100px] p-1 md:p-2">
           <div className="skeleton-shimmer bg-bg-tertiary rounded h-3 w-4 mb-2" />
-          <div className="skeleton-shimmer bg-bg-tertiary rounded h-3 w-full" />
+          <div className="skeleton-shimmer bg-bg-tertiary rounded h-3 w-full md:w-12 md:mb-1.5" />
+          <div className="skeleton-shimmer bg-bg-tertiary rounded h-2 w-full hidden md:block" />
         </div>
       ))}
     </div>
@@ -170,7 +215,7 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
 
     return (
       <div
-        className={`bg-bg-card min-h-[56px] md:min-h-[80px] p-1 md:p-2 border-l-2 ${borderColor} ${
+        className={`bg-bg-card min-h-[56px] md:min-h-[100px] p-1 md:p-2 border-l-2 ${borderColor} ${
           isToday ? 'ring-1 ring-accent ring-inset' : ''
         } ${isOutside ? 'opacity-40' : ''}`}
       >
@@ -186,14 +231,31 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
     );
   }
 
-  // All-teams view — show game count, clickable
+  // All-teams view — show game count + featured matchups, clickable
+  // Build featured matchup previews (desktop only, max 2)
+  const matchupPreviews = [];
+  if (hasGames) {
+    const previewCount = Math.min(dayGames.length, 2);
+    for (let i = 0; i < previewCount; i++) {
+      const g = dayGames[i];
+      const awayData = getTeamData(g.teams?.away?.team?.name);
+      const homeData = getTeamData(g.teams?.home?.team?.name);
+      matchupPreviews.push(
+        <div key={g.gamePk} className="text-[9px] text-text-muted truncate leading-tight">
+          {awayData?.abbr || '???'} @ {homeData?.abbr || '???'}
+        </div>
+      );
+    }
+  }
+  const remaining = dayGames.length - 2;
+
   return (
     <button
       onClick={() => hasGames && onDayClick(dateStr)}
-      className={`bg-bg-card min-h-[56px] md:min-h-[80px] p-1 md:p-2 text-left w-full transition-colors ${
-        hasGames ? 'hover:bg-bg-elevated cursor-pointer' : ''
+      className={`min-h-[56px] md:min-h-[100px] p-1 md:p-2 text-left w-full transition-colors ${
+        hasGames ? `bg-bg-card ${getHeatClass(dayGames.length)} hover:bg-bg-elevated cursor-pointer` : 'bg-bg-card'
       } ${isToday ? 'ring-1 ring-accent ring-inset' : ''} ${isOutside ? 'opacity-40' : ''} ${
-        isSelected ? 'bg-bg-elevated' : ''
+        isSelected ? '!bg-bg-elevated' : ''
       }`}
       disabled={!hasGames}
     >
@@ -201,9 +263,24 @@ const CalendarCell = ({ date, games, teamFilter, isToday, isOutside, onDayClick,
         {dayNum}
       </div>
       {hasGames && (
-        <span className="inline-flex items-center justify-center px-1.5 py-0.5 bg-accent/15 text-accent text-[10px] md:text-xs font-bold rounded-full">
-          {dayGames.length}
-        </span>
+        <>
+          {/* Mobile: compact badge */}
+          <span className="md:hidden inline-flex items-center justify-center px-1.5 py-0.5 bg-accent/15 text-accent text-[10px] font-bold rounded-full">
+            {dayGames.length}
+          </span>
+          {/* Desktop: "X games" label + matchup previews */}
+          <div className="hidden md:block">
+            <span className="text-[11px] text-text-secondary font-medium">
+              {dayGames.length} game{dayGames.length !== 1 ? 's' : ''}
+            </span>
+            <div className="mt-1 space-y-px">
+              {matchupPreviews}
+              {remaining > 0 && (
+                <div className="text-[9px] text-text-muted/60 leading-tight">+{remaining} more</div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </button>
   );
@@ -276,14 +353,9 @@ const ExpandedDayGames = ({ dateStr, games }) => {
 
 // ── List View ─────────────────────────────────────────────────
 
-const ListView = ({ scheduleData, teamFilter }) => {
+const ListView = ({ scheduleData, teamFilter, viewMonth, viewYear, season }) => {
   if (scheduleData.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-5xl mb-4">📅</div>
-        <p className="text-text-muted">No games this month.</p>
-      </div>
-    );
+    return <EmptyCalendarMessage viewMonth={viewMonth} viewYear={viewYear} season={season} />;
   }
 
   return (
@@ -570,11 +642,51 @@ const Schedule = ({ season, latestSeason }) => {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
+      {/* Header + Month navigation */}
       <div className="text-center mb-6">
         <h2 className="font-display text-5xl md:text-6xl text-text-primary tracking-wide mb-3">
           SCHEDULE
         </h2>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+          <div />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={prevMonth}
+              disabled={!canGoPrev}
+              className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
+              aria-label="Previous month"
+            >
+              <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <span className="font-display text-xl md:text-2xl tracking-wide text-text-primary min-w-[180px] text-center">
+              {MONTHS[viewMonth].toUpperCase()} {viewYear}
+            </span>
+
+            <button
+              onClick={nextMonth}
+              disabled={!canGoNextSimple}
+              className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
+              aria-label="Next month"
+            >
+              <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          <div className="pl-2">
+            {isCurrentSeason && (
+              <button
+                onClick={goToToday}
+                className="px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-hover transition-colors"
+              >
+                Today
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Controls */}
@@ -596,48 +708,6 @@ const Schedule = ({ season, latestSeason }) => {
 
         {/* Spacer */}
         <div className="flex-1" />
-
-        {/* Month navigation */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={prevMonth}
-            disabled={!canGoPrev}
-            className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
-            aria-label="Previous month"
-          >
-            <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <span className="font-display text-xl md:text-2xl tracking-wide text-text-primary min-w-[180px] text-center">
-            {MONTHS[viewMonth].toUpperCase()} {viewYear}
-          </span>
-
-          <button
-            onClick={nextMonth}
-            disabled={!canGoNextSimple}
-            className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-elevated border border-border transition-all disabled:opacity-30 disabled:pointer-events-none theme-transition"
-            aria-label="Next month"
-          >
-            <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          {/* Today button (latest season only) */}
-          {isCurrentSeason && (
-            <button
-              onClick={goToToday}
-              className="px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-hover transition-colors"
-            >
-              Today
-            </button>
-          )}
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1 hidden md:block" />
 
         {/* View toggle */}
         <div className="flex bg-bg-tertiary rounded-lg p-1 border border-border theme-transition">
@@ -677,54 +747,50 @@ const Schedule = ({ season, latestSeason }) => {
 
       {/* Calendar View */}
       {!loading && viewMode === 'calendar' && (
-        <div>
-          {/* Day headers */}
-          <div className="grid grid-cols-7 gap-px mb-px">
-            {DAYS_OF_WEEK.map(d => (
-              <div key={d} className="text-center text-xs font-bold text-text-muted py-2">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
-            {calendarDays.map(({ date, outside }, i) => {
-              const dateStr = toIso(date);
-              const isToday = dateStr === todayStr;
-              return (
-                <CalendarCell
-                  key={i}
-                  date={date}
-                  games={gamesByDate[dateStr]}
-                  teamFilter={teamFilter}
-                  isToday={isToday}
-                  isOutside={outside}
-                  onDayClick={handleDayClick}
-                  selectedDay={selectedDay}
-                />
-              );
-            })}
-          </div>
-
-          {/* Expanded day detail (all-teams mode) */}
-          {selectedDay && !teamFilter && expandedGames.length > 0 && (
-            <ExpandedDayGames dateStr={selectedDay} games={expandedGames} />
-          )}
-
-          {/* No games message */}
-          {scheduleData.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-5xl mb-4">📅</div>
-              <p className="text-text-muted">No games scheduled for {MONTHS[viewMonth]} {viewYear}.</p>
+        scheduleData.length === 0 ? (
+          <EmptyCalendarMessage viewMonth={viewMonth} viewYear={viewYear} season={season} />
+        ) : (
+          <div>
+            {/* Day headers */}
+            <div className="grid grid-cols-7 gap-px mb-px">
+              {DAYS_OF_WEEK.map(d => (
+                <div key={d} className="text-center text-xs font-bold text-text-muted py-2">
+                  {d}
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
+              {calendarDays.map(({ date, outside }, i) => {
+                const dateStr = toIso(date);
+                const isToday = dateStr === todayStr;
+                return (
+                  <CalendarCell
+                    key={i}
+                    date={date}
+                    games={gamesByDate[dateStr]}
+                    teamFilter={teamFilter}
+                    isToday={isToday}
+                    isOutside={outside}
+                    onDayClick={handleDayClick}
+                    selectedDay={selectedDay}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Expanded day detail (all-teams mode) */}
+            {selectedDay && !teamFilter && expandedGames.length > 0 && (
+              <ExpandedDayGames dateStr={selectedDay} games={expandedGames} />
+            )}
+          </div>
+        )
       )}
 
       {/* List View */}
       {!loading && viewMode === 'list' && (
-        <ListView scheduleData={scheduleData} teamFilter={teamFilter} />
+        <ListView scheduleData={scheduleData} teamFilter={teamFilter} viewMonth={viewMonth} viewYear={viewYear} season={season} />
       )}
     </div>
   );

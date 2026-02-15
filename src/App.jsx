@@ -15,6 +15,7 @@ import Schedule from './components/Schedule';
 import RetiredPlayerPicker from './components/RetiredPlayerPicker';
 import { PlayerCardSkeleton, StandingsSkeleton, TeamCardSkeleton } from './components/Skeleton';
 import { fetchPlayerStats, fetchLeagueStats, isPitcherPosition, searchPlayers, fetchPlayerById, fetchStandings, fetchTeamStats, fetchAllTeamStats, fetchTeamRoster, fetchCareerStats, fetchGameLog, fetchSplitStats, fetchPlayerAwards, fetchTopPlayerNames, fetchTransactions } from './utils/api';
+import { TEAM_DATA } from './utils/teamData';
 import { useHashRouter, buildHash } from './hooks/useHashRouter';
 import { version as APP_VERSION } from '../package.json';
 
@@ -27,11 +28,13 @@ const AVAILABLE_SEASONS = Array.from(
   (_, i) => latestSeason - i
 );
 
-// Fallback players for suggestions before API responds or on error
+// Fallback suggestions before API responds or on error (mix of players + teams)
 const FALLBACK_PLAYERS = [
   'Aaron Judge', 'Shohei Ohtani', 'Juan Soto', 'Mookie Betts',
   'Bobby Witt Jr.', 'Gunnar Henderson', 'Corbin Burnes', 'Gerrit Cole',
   'Freddie Freeman', 'Bryce Harper',
+  'New York Yankees', 'Los Angeles Dodgers', 'Atlanta Braves', 'Houston Astros',
+  'Philadelphia Phillies', 'San Diego Padres',
 ];
 
 // Pick n random unique players from a pool, excluding current picks
@@ -66,7 +69,7 @@ const ThemeToggle = ({ theme, onToggle }) => (
 
 // Navigation items
 const NAV_ITEMS = [
-  { key: 'players', label: 'Players' },
+  { key: 'players', label: 'Search' },
   { key: 'teams', label: 'Standings' },
   { key: 'leaders', label: 'Leaders' },
   { key: 'scoreboard', label: 'Scores' },
@@ -167,15 +170,23 @@ function App() {
   const suggestionsRef = useRef(suggestions);
   suggestionsRef.current = suggestions;
 
+  // Popular team names to mix into the suggestion pool
+  const SUGGESTION_TEAMS = [
+    'New York Yankees', 'Los Angeles Dodgers', 'Atlanta Braves', 'Houston Astros',
+    'Philadelphia Phillies', 'San Diego Padres', 'New York Mets', 'Chicago Cubs',
+    'Boston Red Sox', 'San Francisco Giants',
+  ];
+
   // Fetch dynamic player pool on mount / season change
   useEffect(() => {
     const controller = new AbortController();
     fetchTopPlayerNames(season, controller.signal).then(names => {
       if (names.length > 0) {
-        setPlayerPool(names);
+        const pool = [...names, ...SUGGESTION_TEAMS];
+        setPlayerPool(pool);
         // Re-init suggestions from the fresh pool if no player is loaded
         if (!player1) {
-          setSuggestions(pickFromPool(names, 3));
+          setSuggestions(pickFromPool(pool, 3));
         }
       }
     });
@@ -202,6 +213,7 @@ function App() {
   const cardRef = useRef(null);
   const cardContainerRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const pendingScrollRef = useRef(null);
 
   // Apply theme to document
   useEffect(() => {
@@ -363,9 +375,22 @@ function App() {
       }
     };
 
+    // Store pending scroll position — restored after content renders (see effect below)
+    pendingScrollRef.current = router.savedScrollY || null;
     restoreRoute();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.route, router.playerId, router.player1Id, router.player2Id, router.teamId, router.season, router.source]);
+
+  // Restore scroll position after content has rendered (loading states settled)
+  useEffect(() => {
+    if (pendingScrollRef.current != null && !loading && !teamsLoading) {
+      const scrollY = pendingScrollRef.current;
+      pendingScrollRef.current = null;
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+      });
+    }
+  }, [loading, teamsLoading]);
 
   const toggleTheme = () => {
     setTheme(prev => {
@@ -682,18 +707,25 @@ function App() {
   };
 
   const handleQuickSelect = async (name) => {
+    // Check if the suggestion is a team name
+    const teamData = TEAM_DATA[name];
+    if (teamData) {
+      handleSelectTeam({ team: { id: teamData.id, name } });
+      return;
+    }
+
     setLoading(true);
     try {
       const results = await searchPlayers(name);
       if (results.length > 0) {
         await fetchPlayerData(results[0], season, 'player1'); // fetchPlayerData handles URL
       } else {
-        setError(`No player found for "${name}"`);
+        setError(`No results found for "${name}"`);
         setLoading(false);
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        setError('Failed to search for player');
+        setError('Failed to search');
         setLoading(false);
       }
     }
@@ -924,7 +956,8 @@ function App() {
               <select
                 value={season}
                 onChange={(e) => handleSeasonChange(parseInt(e.target.value, 10))}
-                className="px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-bold focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition"
+                className="appearance-none pl-3 pr-7 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-bold focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer theme-transition"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundSize: '14px 14px', backgroundPosition: 'right 8px center' }}
                 aria-label="Select season year"
               >
                 {AVAILABLE_SEASONS.map(year => (
@@ -979,7 +1012,7 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
-        {/* Search Section - players view only */}
+        {/* Search Section - search view only */}
         {view === 'players' && (
           <div className="mb-8 relative z-30">
             <div className={`max-w-xl transition-all duration-500 ease-out ${
@@ -987,8 +1020,9 @@ function App() {
             }`}>
               <PlayerSearch
                 onSelect={(p) => fetchPlayerData(p, season, 'player1')}
+                onTeamSelect={handleSelectTeam}
                 loading={loading}
-                placeholder="Search any player..."
+                placeholder="Search any player or team..."
               />
             </div>
 
@@ -1186,10 +1220,10 @@ function App() {
           <div className="text-center py-16 animate-fade-in">
             <div className="text-7xl mb-6">⚾</div>
             <h2 className="font-display text-4xl text-text-primary mb-3 tracking-wide">
-              SEARCH ANY PLAYER
+              SEARCH ANY PLAYER OR TEAM
             </h2>
             <p className="text-text-muted max-w-md mx-auto mb-8">
-              See how they rank against the league with detailed percentile breakdowns
+              Player percentile breakdowns, team rosters, stats and more
             </p>
             <div className="flex flex-wrap justify-center gap-3 text-sm">
               <span className="text-text-muted self-center">Try:</span>

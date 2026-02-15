@@ -55,10 +55,13 @@ export const getTeamMlbUrl = (teamName) => {
 // Dark-mode logo overrides for teams whose cap-on-dark has invisible dark elements
 const DARK_LOGO_OVERRIDE = { 121: 'team-primary-on-dark/' }; // Mets: white+orange primary
 
+// MLB team IDs — only these have dark-mode logo variants (MiLB teams don't)
+const MLB_IDS = new Set(Object.values(TEAM_DATA).map(t => t.id));
+
 export const getTeamLogoUrl = (teamId, theme) => {
   if (!teamId) return null;
   const t = theme || (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) || 'dark';
-  if (t === 'dark') {
+  if (t === 'dark' && MLB_IDS.has(teamId)) {
     const variant = DARK_LOGO_OVERRIDE[teamId] || 'team-cap-on-dark/';
     return `https://www.mlbstatic.com/team-logos/${variant}${teamId}.svg`;
   }
