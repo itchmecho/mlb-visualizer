@@ -151,7 +151,7 @@ const TeamRoster = ({ roster, loading, onPlayerClick, teamColor }) => {
                   <button
                     key={playerId || fullName}
                     onClick={() => onPlayerClick?.(person)}
-                    className="w-full flex items-center gap-3 px-3 py-2 bg-bg-tertiary hover:bg-bg-elevated rounded-lg transition-all theme-transition group cursor-pointer text-left"
+                    className="w-full flex items-center gap-2 md:gap-3 px-3 py-2 bg-bg-tertiary hover:bg-bg-elevated rounded-lg transition-all theme-transition group cursor-pointer text-left"
                   >
                     {/* Headshot */}
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-bg-primary flex-shrink-0 border border-border-light relative">
@@ -190,7 +190,7 @@ const TeamRoster = ({ roster, loading, onPlayerClick, teamColor }) => {
                     </span>
 
                     {/* Key Stats */}
-                    <div className="flex items-center gap-3 text-xs text-text-secondary tabular-nums flex-shrink-0">
+                    <div className="hidden md:flex items-center gap-3 text-xs text-text-secondary tabular-nums flex-shrink-0">
                       {isEntryPitcher ? (
                         <>
                           <div className="w-12 text-right">
